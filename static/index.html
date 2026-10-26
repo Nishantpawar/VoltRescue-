@@ -26,13 +26,21 @@
     }
 
     ::-webkit-scrollbar-thumb {
-      background: #334155;
+      background: #27272a;
       border-radius: 9999px;
     }
 
     /* OpenStreetMap CSS Dark Mode Filter (Zero Watermarks, Zero API Keys) */
     .dark-map-tiles .leaflet-tile-pane {
-      filter: brightness(0.65) invert(1) contrast(3) hue-rotate(200deg) saturate(0.25);
+      filter: invert(100%) hue-rotate(180deg) brightness(92%) contrast(90%);
+    }
+
+    #leaflet-map {
+      background: #09090b !important;
+    }
+
+    .leaflet-container {
+      background: #09090b !important;
     }
 
     /* Radar Pulse for Driver */
@@ -62,52 +70,52 @@
 
     /* Leaflet Popups Dark Styling */
     .leaflet-popup-content-wrapper {
-      background: #090d16 !important;
-      color: #e2e8f0 !important;
-      border: 1px solid #1e293b !important;
+      background: #09090b !important;
+      color: #f4f4f5 !important;
+      border: 1px solid #27272a !important;
       border-radius: 0.75rem !important;
       box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7) !important;
     }
 
     .leaflet-popup-tip {
-      background: #090d16 !important;
+      background: #09090b !important;
     }
   </style>
 </head>
 
 <body
-  class="bg-[#06080d] text-slate-100 min-h-screen relative overflow-x-hidden font-sans antialiased selection:bg-emerald-500 selection:text-black">
+  class="bg-zinc-950 text-zinc-100 min-h-screen relative overflow-x-hidden font-sans antialiased selection:bg-emerald-500 selection:text-black">
 
   <!-- Background 21st.dev Procedural Beams Canvas -->
   <canvas id="beams-canvas" class="fixed inset-0 pointer-events-none z-0" style="filter: blur(28px);"></canvas>
-  <div class="fixed inset-0 bg-[#06080d]/80 pointer-events-none z-0 backdrop-blur-[24px]"></div>
+  <div class="fixed inset-0 bg-zinc-950/80 pointer-events-none z-0 backdrop-blur-[24px]"></div>
 
   <div class="relative z-10 flex flex-col min-h-screen">
 
     <!-- Top Navigation Header -->
     <header
-      class="border-b border-slate-800/80 bg-slate-950/70 backdrop-blur-md px-6 py-3.5 flex items-center justify-between sticky top-0 z-30">
+      class="border-b border-zinc-800/80 bg-zinc-950/70 backdrop-blur-md px-6 py-3.5 flex items-center justify-between sticky top-0 z-30">
       <div class="flex items-center gap-3">
         <div
-          class="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/25 text-slate-950 font-black text-lg">
+          class="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/25 text-zinc-950 font-black text-lg">
           <i class="fa-solid fa-bolt"></i>
         </div>
         <div>
           <div class="flex items-center gap-2">
             <h1 class="text-base font-bold tracking-tight text-white">VoltRescue</h1>
             <span
-              class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">P2P
+              class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">P2P
               Network</span>
           </div>
-          <p class="text-[11px] text-slate-400">Autonomous Decentralized EV Rescue Grid</p>
+          <p class="text-[11px] text-zinc-400">Autonomous Decentralized EV Rescue Grid</p>
         </div>
       </div>
 
       <!-- Live Ollama Status Badge -->
       <div
-        class="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900/90 border border-slate-800 text-xs shadow-inner">
+        class="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs shadow-inner">
         <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-        <span class="text-slate-300 font-medium">Local Ollama: <strong class="text-emerald-400 font-mono">Gemma 4
+        <span class="text-zinc-300 font-medium">Local Ollama: <strong class="text-emerald-400 font-mono">Gemma 4
             (Active)</strong></span>
       </div>
     </header>
@@ -118,40 +126,46 @@
       <!-- COLUMN 1: Driver Telemetry & SOS (3 Cols) -->
       <section class="lg:col-span-3 flex flex-col gap-4">
         <div
-          class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5 backdrop-blur-xl shadow-xl flex flex-col gap-4">
-          <div class="flex items-center justify-between pb-3 border-b border-slate-800">
-            <h2 class="text-xs font-bold tracking-wider text-slate-300 uppercase flex items-center gap-2">
+          class="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-5 backdrop-blur-md shadow-xl flex flex-col gap-4">
+          <div class="flex items-center justify-between pb-3 border-b border-zinc-800/80">
+            <h2 class="text-xs font-bold tracking-wider text-zinc-300 uppercase flex items-center gap-2">
               <i class="fa-solid fa-sliders text-emerald-400"></i> EV Telemetry
             </h2>
-            <span class="text-[10px] text-slate-500 font-mono">LIVE SENSORS</span>
+            <span class="text-[10px] text-zinc-500 font-mono">LIVE SENSORS</span>
           </div>
 
           <!-- Vehicle Model -->
           <div>
-            <label class="block text-xs font-semibold text-slate-400 mb-1">Vehicle Model</label>
+            <label class="block text-xs font-semibold text-zinc-400 mb-1">Vehicle Model</label>
             <input type="text" id="ev-model" value="Tata Nexon EV Max"
-              class="w-full bg-slate-950/70 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 transition">
+              class="w-full bg-zinc-950/70 border border-zinc-800/80 rounded-xl px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-cyan-500 transition">
           </div>
 
-          <!-- Battery Meter Slider -->
+          <!-- Battery Meter Slider with Low-Battery Warning Pill -->
           <div>
-            <div class="flex justify-between items-center mb-1">
-              <label class="text-xs font-semibold text-slate-400">Remaining Battery</label>
-              <span id="battery-val-text" class="text-xs font-bold font-mono text-rose-400">8%</span>
+            <div class="flex justify-between items-center mb-1.5">
+              <div class="flex items-center gap-2">
+                <label class="text-xs font-semibold text-zinc-400">Remaining Battery</label>
+                <span id="battery-status-badge"
+                  class="px-2 py-0.5 rounded-full text-[10px] font-semibold font-mono bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1">
+                  <i class="fa-solid fa-triangle-exclamation text-[9px]"></i> Low Battery Warning
+                </span>
+              </div>
+              <span id="battery-val-text" class="text-xs font-bold font-mono text-amber-400">8%</span>
             </div>
             <input type="range" id="battery-range" min="1" max="100" value="8"
-              class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-rose-500">
-            <div class="w-full bg-slate-950 rounded-full h-2 mt-2 p-0.5 border border-slate-800">
-              <div id="battery-bar" class="h-full bg-rose-500 rounded-full transition-all duration-300"
+              class="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-amber-500">
+            <div class="w-full bg-zinc-950 rounded-full h-2 mt-2 p-0.5 border border-zinc-800/80">
+              <div id="battery-bar" class="h-full bg-amber-500 rounded-full transition-all duration-300"
                 style="width: 8%;"></div>
             </div>
           </div>
 
           <!-- Port Type -->
           <div>
-            <label class="block text-xs font-semibold text-slate-400 mb-1">Connector Port</label>
+            <label class="block text-xs font-semibold text-zinc-400 mb-1">Connector Port</label>
             <select id="port-type"
-              class="w-full bg-slate-950/70 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 transition">
+              class="w-full bg-zinc-950/70 border border-zinc-800/80 rounded-xl px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-cyan-500 transition">
               <option value="Type 2" selected>Type 2 AC (Fast AC)</option>
               <option value="CCS2">CCS2 (DC Fast Charge)</option>
               <option value="15A Socket">15A Standard Domestic Socket</option>
@@ -162,21 +176,21 @@
           <div class="grid grid-cols-2 gap-2 pt-1">
             <div>
               <label
-                class="block text-[10px] text-slate-500 mb-0.5 uppercase tracking-wider font-semibold">Latitude</label>
+                class="block text-[10px] text-zinc-500 mb-0.5 uppercase tracking-wider font-semibold">Latitude</label>
               <input type="text" id="lat-input" value="18.5204"
-                class="w-full bg-slate-950/70 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 font-mono">
+                class="w-full bg-zinc-950/70 border border-zinc-800/80 rounded-lg px-2.5 py-1.5 text-xs text-zinc-300 font-mono">
             </div>
             <div>
               <label
-                class="block text-[10px] text-slate-500 mb-0.5 uppercase tracking-wider font-semibold">Longitude</label>
+                class="block text-[10px] text-zinc-500 mb-0.5 uppercase tracking-wider font-semibold">Longitude</label>
               <input type="text" id="lng-input" value="73.8567"
-                class="w-full bg-slate-950/70 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 font-mono">
+                class="w-full bg-zinc-950/70 border border-zinc-800/80 rounded-lg px-2.5 py-1.5 text-xs text-zinc-300 font-mono">
             </div>
           </div>
 
           <!-- Auto-Detect GPS -->
           <button id="locate-btn" type="button"
-            class="w-full text-xs py-2 px-3 rounded-xl bg-slate-800/60 hover:bg-slate-800 text-slate-300 border border-slate-700/60 flex items-center justify-center gap-2 transition active:scale-[0.99]">
+            class="w-full text-xs py-2 px-3 rounded-xl bg-zinc-800/60 hover:bg-zinc-800 text-zinc-300 border border-zinc-700/60 flex items-center justify-center gap-2 transition active:scale-[0.99]">
             <i class="fa-solid fa-crosshairs text-cyan-400"></i> Auto-Detect My GPS Location
           </button>
 
@@ -194,54 +208,56 @@
 
         <!-- Interactive Leaflet Map (Dark Styled, No Watermark) -->
         <div
-          class="bg-slate-900/60 border border-slate-800/80 rounded-2xl overflow-hidden backdrop-blur-xl shadow-xl flex flex-col h-[380px] relative">
+          class="bg-zinc-900/60 border border-zinc-800 rounded-2xl overflow-hidden backdrop-blur-md shadow-xl flex flex-col h-[380px] relative">
           <div
-            class="px-4 py-2.5 border-b border-slate-800 bg-slate-950/70 flex items-center justify-between text-xs font-semibold text-slate-300">
+            class="px-4 py-2.5 border-b border-zinc-800/80 bg-zinc-950/70 flex items-center justify-between text-xs font-semibold text-zinc-300">
             <span class="flex items-center gap-2"><i class="fa-solid fa-map-location-dot text-cyan-400"></i> Grid Radar
               & Available Hosts</span>
-            <span id="map-status" class="text-[11px] text-emerald-400 font-mono">Pune Central</span>
+            <span id="map-status"
+              class="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">Pune
+              Central</span>
           </div>
           <div id="leaflet-map" class="flex-1 w-full dark-map-tiles z-10"></div>
         </div>
 
         <!-- Gemma 4 Dispatch Decision Card -->
         <div id="dispatch-card"
-          class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5 backdrop-blur-xl shadow-xl flex flex-col gap-3">
+          class="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-5 backdrop-blur-md shadow-xl flex flex-col gap-3">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+            <span class="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
               <i class="fa-solid fa-shield-halved text-emerald-400"></i> Gemma 4 Dispatch Recommendation
             </span>
             <span id="priority-badge"
-              class="px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono bg-rose-500/10 text-rose-400 border border-rose-500/30">
+              class="px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono bg-amber-500/10 text-amber-400 border border-amber-500/20">
               HIGH PRIORITY
             </span>
           </div>
 
           <div class="grid grid-cols-2 gap-3 pt-1">
-            <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800/70">
-              <span class="text-[10px] text-slate-500 block mb-0.5 uppercase font-semibold">Matched Host</span>
-              <p id="card-host-name" class="font-bold text-slate-100 text-sm">Kavita Rao</p>
+            <div class="bg-zinc-950/60 p-3 rounded-xl border border-zinc-800/70">
+              <span class="text-[10px] text-zinc-500 block mb-0.5 uppercase font-semibold">Matched Host</span>
+              <p id="card-host-name" class="font-bold text-zinc-100 text-sm">Kavita Rao</p>
               <span id="card-host-dist" class="text-xs text-cyan-400 font-medium font-mono">1.63 km away</span>
             </div>
-            <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800/70">
-              <span class="text-[10px] text-slate-500 block mb-0.5 uppercase font-semibold">Charger Spec</span>
+            <div class="bg-zinc-950/60 p-3 rounded-xl border border-zinc-800/70">
+              <span class="text-[10px] text-zinc-500 block mb-0.5 uppercase font-semibold">Charger Spec</span>
               <p id="card-charger-spec" class="font-bold text-emerald-400 text-sm">7.2 kW (Type 2)</p>
-              <span id="card-rate" class="text-xs text-slate-400 font-mono">₹13 / kWh</span>
+              <span id="card-rate" class="text-xs text-zinc-400 font-mono">₹13 / kWh</span>
             </div>
           </div>
 
           <div
             class="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs">
-            <span class="text-slate-300 flex items-center gap-1.5"><i class="fa-solid fa-bolt text-emerald-400"></i> ETA
+            <span class="text-zinc-300 flex items-center gap-1.5"><i class="fa-solid fa-bolt text-emerald-400"></i> ETA
               to 30% Charge:</span>
             <span id="card-eta-30" class="font-bold font-mono text-emerald-300 text-sm">~45 mins</span>
           </div>
 
-          <div class="bg-slate-950/50 p-3 rounded-xl border border-slate-800/70 text-xs text-slate-300">
-            <strong class="text-slate-200 block mb-1 flex items-center gap-1.5">
+          <div class="bg-zinc-950/50 p-3 rounded-xl border border-zinc-800/70 text-xs text-zinc-300">
+            <strong class="text-zinc-200 block mb-1 flex items-center gap-1.5">
               <i class="fa-solid fa-microchip text-cyan-400"></i> Driver Advisory Note
             </strong>
-            <p id="card-driver-briefing" class="leading-relaxed text-slate-400">
+            <p id="card-driver-briefing" class="leading-relaxed text-zinc-400">
               Emergency match approved. Host slot held. Proceed with conservative acceleration to preserve power.
             </p>
           </div>
@@ -250,20 +266,20 @@
 
       <!-- COLUMN 3: Gemma 4 Copilot Hub (4 Cols) -->
       <section
-        class="lg:col-span-4 flex flex-col h-[700px] bg-slate-900/60 border border-slate-800/80 rounded-2xl backdrop-blur-xl shadow-xl overflow-hidden">
+        class="lg:col-span-4 flex flex-col h-[700px] bg-zinc-900/60 border border-zinc-800/80 rounded-2xl backdrop-blur-md shadow-xl overflow-hidden">
 
-        <div class="px-5 py-3.5 border-b border-slate-800 bg-slate-950/70 flex items-center justify-between">
+        <div class="px-5 py-3.5 border-b border-zinc-800/80 bg-zinc-950/70 flex items-center justify-between">
           <div class="flex items-center gap-2.5">
             <div class="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs">
               <i class="fa-solid fa-robot"></i>
             </div>
             <div>
-              <h3 class="text-xs font-bold text-slate-200">Gemma 4 EV Copilot</h3>
-              <p class="text-[10px] text-slate-400">100% Local Inference (Ollama)</p>
+              <h3 class="text-xs font-bold text-zinc-200">Gemma 4 EV Copilot</h3>
+              <p class="text-[10px] text-zinc-400">100% Local Inference (Ollama)</p>
             </div>
           </div>
           <span
-            class="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">PORT
+            class="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">PORT
             11434</span>
         </div>
 
@@ -271,11 +287,11 @@
         <div id="chat-messages" class="flex-1 p-4 overflow-y-auto flex flex-col gap-3 text-xs leading-relaxed">
           <div class="flex gap-2.5 max-w-[90%]">
             <div
-              class="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center text-emerald-400 text-[10px] shrink-0 mt-0.5">
+              class="w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-emerald-400 text-[10px] shrink-0 mt-0.5">
               <i class="fa-solid fa-bolt"></i>
             </div>
             <div
-              class="bg-slate-800/80 border border-slate-700/60 rounded-2xl rounded-tl-sm p-3 text-slate-200 shadow-sm">
+              class="bg-zinc-800/80 border border-zinc-700/60 rounded-2xl rounded-tl-sm p-3 text-zinc-200 shadow-sm">
               Hello! I'm your on-device Gemma 4 EV copilot. If you're stranded or calculating range limits, ask me or
               tap a quick query below.
             </div>
@@ -283,30 +299,30 @@
         </div>
 
         <!-- Quick Query Chips -->
-        <div class="px-3 py-2 border-t border-slate-800/60 bg-slate-950/40 flex gap-1.5 overflow-x-auto">
+        <div class="px-3 py-2 border-t border-zinc-800/60 bg-zinc-950/40 flex gap-1.5 overflow-x-auto">
           <button type="button"
-            class="quick-chip shrink-0 text-[11px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-300 border border-slate-700/80 transition"
+            class="quick-chip shrink-0 text-[11px] px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700/60 transition"
             data-query="Can I safely charge an EV on a domestic 15A home socket?">
             ⚡ 15A Socket Safe?
           </button>
           <button type="button"
-            class="quick-chip shrink-0 text-[11px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-300 border border-slate-700/80 transition"
+            class="quick-chip shrink-0 text-[11px] px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700/60 transition"
             data-query="How much range can I realistically squeeze out of 5% battery?">
             📍 Range at 5%?
           </button>
           <button type="button"
-            class="quick-chip shrink-0 text-[11px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-300 border border-slate-700/80 transition"
+            class="quick-chip shrink-0 text-[11px] px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700/60 transition"
             data-query="How should I negotiate payment with an emergency host?">
             🤝 Payment Advice?
           </button>
         </div>
 
         <!-- Chat Input Form -->
-        <form id="chat-form" class="p-3 border-t border-slate-800 bg-slate-950/80 flex items-center gap-2">
+        <form id="chat-form" class="p-3 border-t border-zinc-800 bg-zinc-950/80 flex items-center gap-2">
           <input type="text" id="chat-input" placeholder="Ask Gemma 4 anything..."
-            class="flex-1 bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition">
+            class="flex-1 bg-zinc-900 border border-zinc-700/80 rounded-xl px-3 py-2 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-cyan-500 transition">
           <button type="submit"
-            class="w-9 h-9 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950 font-bold flex items-center justify-center transition shrink-0 hover:opacity-90">
+            class="w-9 h-9 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-zinc-950 font-bold flex items-center justify-center transition shrink-0 hover:opacity-90">
             <i class="fa-solid fa-paper-plane text-xs"></i>
           </button>
         </form>
@@ -438,21 +454,29 @@
     const batteryRange = document.getElementById('battery-range');
     const batteryBar = document.getElementById('battery-bar');
     const batteryText = document.getElementById('battery-val-text');
+    const batteryBadge = document.getElementById('battery-status-badge');
 
     batteryRange.addEventListener('input', (e) => {
       const val = parseInt(e.target.value);
       batteryText.innerText = `${val}%`;
       batteryBar.style.width = `${val}%`;
 
-      if (val <= 15) {
-        batteryBar.className = "h-full bg-rose-500 rounded-full transition-all duration-300";
-        batteryText.className = "text-xs font-bold font-mono text-rose-400";
-      } else if (val <= 30) {
+      if (val <= 20) {
         batteryBar.className = "h-full bg-amber-500 rounded-full transition-all duration-300";
         batteryText.className = "text-xs font-bold font-mono text-amber-400";
+        batteryRange.className = "w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-amber-500";
+        if (batteryBadge) {
+          batteryBadge.className = "px-2 py-0.5 rounded-full text-[10px] font-semibold font-mono bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1";
+          batteryBadge.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-[9px]"></i> Low Battery Warning';
+        }
       } else {
         batteryBar.className = "h-full bg-emerald-500 rounded-full transition-all duration-300";
         batteryText.className = "text-xs font-bold font-mono text-emerald-400";
+        batteryRange.className = "w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-emerald-500";
+        if (batteryBadge) {
+          batteryBadge.className = "px-2 py-0.5 rounded-full text-[10px] font-semibold font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1";
+          batteryBadge.innerHTML = '<i class="fa-solid fa-circle-check text-[9px]"></i> Battery Optimal';
+        }
       }
     });
 
@@ -538,10 +562,10 @@
       const bubble = document.createElement('div');
       bubble.className = `flex gap-2.5 max-w-[88%] ${isUser ? 'ml-auto flex-row-reverse' : ''}`;
       bubble.innerHTML = `
-        <div class="w-6 h-6 rounded-full ${isUser ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950' : 'bg-slate-800 text-emerald-400'} flex items-center justify-center text-[10px] shrink-0 mt-0.5">
+        <div class="w-6 h-6 rounded-full ${isUser ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-zinc-950' : 'bg-zinc-800 text-emerald-400'} flex items-center justify-center text-[10px] shrink-0 mt-0.5">
           <i class="fa-solid ${isUser ? 'fa-user' : 'fa-robot'}"></i>
         </div>
-        <div class="${isUser ? 'bg-emerald-600 text-white rounded-tr-sm' : 'bg-slate-800/90 text-slate-200 rounded-tl-sm border border-slate-700/60'} rounded-2xl p-3 shadow-sm">
+        <div class="${isUser ? 'bg-emerald-600 text-white rounded-tr-sm' : 'bg-zinc-800/90 text-zinc-200 rounded-tl-sm border border-zinc-700/60'} rounded-2xl p-3 shadow-sm">
           ${text}
         </div>
       `;
@@ -556,7 +580,7 @@
 
       const typingIndicator = document.createElement('div');
       typingIndicator.id = 'typing-indicator';
-      typingIndicator.className = 'text-[11px] text-slate-400 italic flex items-center gap-1.5 ml-8';
+      typingIndicator.className = 'text-[11px] text-zinc-400 italic flex items-center gap-1.5 ml-8';
       typingIndicator.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-emerald-400"></i> Gemma 4 is thinking locally...';
       chatMessages.appendChild(typingIndicator);
       chatMessages.scrollTop = chatMessages.scrollHeight;
