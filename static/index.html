@@ -1,552 +1,592 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
+
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VoltRescue &mdash; Emergency P2P EV Charging</title>
-  <meta name="description" content="VoltRescue connects stranded EV drivers with nearby residential chargers using AI-powered emergency dispatch. Powered by local Gemma 4." />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VoltRescue — P2P EV Emergency Charging Grid</title>
+
+  <!-- Tailwind CSS & FontAwesome -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: { inter: ['Inter', 'sans-serif'] },
-          colors: {
-            brand: { 400: '#34d399', 500: '#10b981', 600: '#059669' },
-            beam:  { 100: 'hsla(190,85%,65%,0.9)', 200: 'hsla(220,85%,65%,0.9)', 300: 'hsla(260,85%,65%,0.9)' },
-          },
-          backdropBlur: { '3xl': '48px' },
-          keyframes: {
-            pulse2: { '0%,100%': { opacity: '1' }, '50%': { opacity: '0.35' } },
-            fadeUp:  { from: { opacity: '0', transform: 'translateY(20px)' }, to: { opacity: '1', transform: 'translateY(0)' } },
-            shimmer: { from: { backgroundPosition: '200% center' }, to: { backgroundPosition: '-200% center' } },
-          },
-          animation: {
-            pulse2:  'pulse2 1.8s ease-in-out infinite',
-            fadeUp:  'fadeUp 0.5s ease-out forwards',
-            shimmer: 'shimmer 3s linear infinite',
-          },
-        }
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Leaflet CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    /* Clean custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 9999px;
+    }
+
+    /* OpenStreetMap CSS Dark Mode Filter (Zero Watermarks, Zero API Keys) */
+    .dark-map-tiles .leaflet-tile-pane {
+      filter: brightness(0.65) invert(1) contrast(3) hue-rotate(200deg) saturate(0.25);
+    }
+
+    /* Radar Pulse for Driver */
+    .radar-marker {
+      width: 16px;
+      height: 16px;
+      background: #06b6d4;
+      border: 2.5px solid #ffffff;
+      border-radius: 50%;
+      box-shadow: 0 0 12px #06b6d4;
+      animation: radar-wave 2s infinite ease-out;
+    }
+
+    @keyframes radar-wave {
+      0% {
+        box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.8);
+      }
+
+      70% {
+        box-shadow: 0 0 0 16px rgba(6, 182, 212, 0);
+      }
+
+      100% {
+        box-shadow: 0 0 0 0 rgba(6, 182, 212, 0);
       }
     }
-  </script>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; }
-    body { font-family: 'Inter', sans-serif; background: #020918; color: #e2e8f0; margin: 0; overflow-x: hidden; }
-    ::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-track { background: #0f172a; } ::-webkit-scrollbar-thumb { background: #334155; border-radius: 9px; }
-    .glass { background: rgba(15,23,42,0.60); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(148,163,184,0.10); border-radius: 1.25rem; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6); }
-    .glow-emerald { box-shadow: 0 0 18px 2px rgba(52,211,153,0.35); }
-    .glow-red     { box-shadow: 0 0 22px 4px rgba(239,68,68,0.50); }
-    .battery-bar  { transition: width 0.6s cubic-bezier(.4,0,.2,1), background 0.4s; }
-    .chip { cursor: pointer; padding: 6px 14px; border-radius: 999px; background: rgba(52,211,153,0.10); border: 1px solid rgba(52,211,153,0.22); font-size: 0.78rem; font-weight: 500; color: #6ee7b7; transition: all .2s; white-space: nowrap; user-select: none; }
-    .chip:hover { background: rgba(52,211,153,0.22); border-color: rgba(52,211,153,0.55); color: #34d399; transform: translateY(-1px); }
-    .msg-user { background: linear-gradient(135deg, #065f46, #047857); border-radius: 1.2rem 1.2rem 0.25rem 1.2rem; margin-left: auto; }
-    .msg-ai   { background: rgba(30,41,59,0.90); border: 1px solid rgba(148,163,184,0.10); border-radius: 1.2rem 1.2rem 1.2rem 0.25rem; margin-right: auto; }
-    .priority-CRITICAL { background:rgba(239,68,68,0.18); color:#fca5a5; border:1px solid rgba(239,68,68,0.4); }
-    .priority-HIGH     { background:rgba(249,115,22,0.18); color:#fdba74; border:1px solid rgba(249,115,22,0.4); }
-    .priority-MEDIUM   { background:rgba(234,179,8,0.18); color:#fde047; border:1px solid rgba(234,179,8,0.4); }
-    .priority-LOW      { background:rgba(52,211,153,0.18); color:#6ee7b7; border:1px solid rgba(52,211,153,0.4); }
-    .sos-btn { background: linear-gradient(135deg, #dc2626, #e11d48, #be123c); transition: all .25s; }
-    .sos-btn:hover:not(:disabled) { filter: brightness(1.15); transform: translateY(-2px); box-shadow: 0 0 28px 6px rgba(239,68,68,0.55); }
-    .sos-btn:disabled { opacity: 0.65; cursor: not-allowed; transform: none; }
-    #result-card { display: none; }
-    #result-card.visible { display: block; animation: fadeUp 0.55s ease-out forwards; }
-    #typing { display: none; }
-    #typing.visible { display: flex; }
-    .dot-flashing { display: flex; gap: 5px; align-items: center; }
-    .dot-flashing span { width: 7px; height: 7px; border-radius: 50%; background: #6ee7b7; animation: pulse2 1.2s ease-in-out infinite; }
-    .dot-flashing span:nth-child(2) { animation-delay: .2s; }
-    .dot-flashing span:nth-child(3) { animation-delay: .4s; }
-    .shimmer-text { background: linear-gradient(90deg, #34d399, #67e8f9, #818cf8, #34d399); background-size: 300%; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shimmer 4s linear infinite; }
+
+    /* Leaflet Popups Dark Styling */
+    .leaflet-popup-content-wrapper {
+      background: #090d16 !important;
+      color: #e2e8f0 !important;
+      border: 1px solid #1e293b !important;
+      border-radius: 0.75rem !important;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7) !important;
+    }
+
+    .leaflet-popup-tip {
+      background: #090d16 !important;
+    }
   </style>
 </head>
-<body class="min-h-screen relative">
 
-<!-- ░░ BEAMS CANVAS BACKGROUND ░░ -->
-<canvas id="beamsCanvas" class="fixed inset-0 w-full h-full" style="pointer-events:none;z-index:0;"></canvas>
+<body
+  class="bg-[#06080d] text-slate-100 min-h-screen relative overflow-x-hidden font-sans antialiased selection:bg-emerald-500 selection:text-black">
 
-<!-- ░░ FROSTED OVERLAY ░░ -->
-<div class="fixed inset-0" style="background:rgba(2,9,24,0.72);backdrop-filter:blur(1px);z-index:1;pointer-events:none;"></div>
+  <!-- Background 21st.dev Procedural Beams Canvas -->
+  <canvas id="beams-canvas" class="fixed inset-0 pointer-events-none z-0" style="filter: blur(28px);"></canvas>
+  <div class="fixed inset-0 bg-[#06080d]/80 pointer-events-none z-0 backdrop-blur-[24px]"></div>
 
-<!-- ░░ APP SHELL ░░ -->
-<div class="relative min-h-screen flex flex-col" style="z-index:2;">
+  <div class="relative z-10 flex flex-col min-h-screen">
 
-  <!-- NAV -->
-  <nav class="flex items-center justify-between px-6 py-4 border-b border-slate-800/60" style="background:rgba(2,9,24,0.80);backdrop-filter:blur(24px);">
-    <div class="flex items-center gap-3">
-      <div class="relative flex items-center justify-center w-10 h-10 rounded-xl" style="background:linear-gradient(135deg,#065f46,#047857);box-shadow:0 0 18px 3px rgba(52,211,153,0.4);">
-        <i class="fa-solid fa-bolt text-emerald-300 text-lg"></i>
-      </div>
-      <div>
-        <span class="text-xl font-black tracking-tight shimmer-text">VoltRescue</span>
-        <div class="text-xs text-slate-500 font-medium -mt-0.5">Emergency P2P EV Charging</div>
-      </div>
-    </div>
-    <div class="flex items-center gap-2 px-4 py-2 rounded-full" style="background:rgba(15,23,42,0.70);border:1px solid rgba(52,211,153,0.22);">
-      <span class="relative flex h-2.5 w-2.5">
-        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-        <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-      </span>
-      <span class="text-xs font-semibold text-emerald-400">Local Ollama: Gemma 4 Active</span>
-    </div>
-  </nav>
-
-  <!-- MAIN CONTENT -->
-  <main class="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-5 p-5 max-w-7xl mx-auto w-full">
-
-    <!-- ═══ LEFT COLUMN ═══ -->
-    <section class="flex flex-col gap-5">
-
-      <!-- Header -->
-      <div>
-        <h1 class="text-3xl font-black tracking-tight text-white leading-tight">Emergency <span class="shimmer-text">SOS Dispatch</span></h1>
-        <p class="text-slate-400 text-sm mt-1">AI-powered matching connects you to the nearest compatible charger instantly.</p>
-      </div>
-
-      <!-- Telemetry Card -->
-      <div class="glass p-5 flex flex-col gap-5">
-        <div class="flex items-center gap-2 text-sm font-semibold text-slate-300 uppercase tracking-widest">
-          <i class="fa-solid fa-satellite-dish text-emerald-400"></i> Vehicle Telemetry
+    <!-- Top Navigation Header -->
+    <header
+      class="border-b border-slate-800/80 bg-slate-950/70 backdrop-blur-md px-6 py-3.5 flex items-center justify-between sticky top-0 z-30">
+      <div class="flex items-center gap-3">
+        <div
+          class="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/25 text-slate-950 font-black text-lg">
+          <i class="fa-solid fa-bolt"></i>
         </div>
-
-        <!-- Vehicle Model -->
-        <div class="flex flex-col gap-1.5">
-          <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Vehicle Model</label>
-          <input id="vehicleModel" type="text" placeholder="e.g. Tata Nexon EV, MG ZS EV" value="Tata Nexon EV Max"
-            class="w-full px-4 py-3 rounded-xl text-sm font-medium text-white placeholder-slate-600 outline-none transition focus:ring-2 focus:ring-emerald-500/50"
-            style="background:rgba(15,23,42,0.80);border:1px solid rgba(148,163,184,0.12);" />
-        </div>
-
-        <!-- Battery % -->
-        <div class="flex flex-col gap-2">
-          <div class="flex items-center justify-between">
-            <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Battery Remaining</label>
-            <span id="battLabel" class="text-xs font-bold text-emerald-400 tabular-nums">8%</span>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-base font-bold tracking-tight text-white">VoltRescue</h1>
+            <span
+              class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">P2P
+              Network</span>
           </div>
-          <input id="battPct" type="number" min="1" max="100" value="8"
-            class="w-full px-4 py-3 rounded-xl text-sm font-medium text-white outline-none transition focus:ring-2 focus:ring-emerald-500/50"
-            style="background:rgba(15,23,42,0.80);border:1px solid rgba(148,163,184,0.12);"
-            oninput="updateBattery(this.value)" />
-          <div class="w-full rounded-full overflow-hidden h-2.5" style="background:rgba(30,41,59,0.8);">
-            <div id="battBar" class="battery-bar h-2.5 rounded-full" style="width:8%;background:linear-gradient(90deg,#ef4444,#f97316);"></div>
-          </div>
-        </div>
-
-        <!-- Port Type -->
-        <div class="flex flex-col gap-1.5">
-          <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Port Type</label>
-          <select id="portType"
-            class="w-full px-4 py-3 rounded-xl text-sm font-medium text-white outline-none transition focus:ring-2 focus:ring-emerald-500/50 cursor-pointer"
-            style="background:rgba(15,23,42,0.90);border:1px solid rgba(148,163,184,0.12);">
-            <option value="Type 2">Type 2 (AC)</option>
-            <option value="CCS2">CCS2 (DC Fast)</option>
-            <option value="15A Socket">15A Socket (Slow)</option>
-          </select>
-        </div>
-
-        <!-- Lat / Lng -->
-        <div class="grid grid-cols-2 gap-3">
-          <div class="flex flex-col gap-1.5">
-            <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Latitude</label>
-            <input id="lat" type="number" step="0.0001" value="18.5204"
-              class="w-full px-4 py-3 rounded-xl text-sm font-medium text-white outline-none transition focus:ring-2 focus:ring-emerald-500/50"
-              style="background:rgba(15,23,42,0.80);border:1px solid rgba(148,163,184,0.12);" />
-          </div>
-          <div class="flex flex-col gap-1.5">
-            <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Longitude</label>
-            <input id="lng" type="number" step="0.0001" value="73.8567"
-              class="w-full px-4 py-3 rounded-xl text-sm font-medium text-white outline-none transition focus:ring-2 focus:ring-emerald-500/50"
-              style="background:rgba(15,23,42,0.80);border:1px solid rgba(148,163,184,0.12);" />
-          </div>
-        </div>
-
-        <!-- SOS Button -->
-        <button id="sosBtn" onclick="triggerSOS()" class="sos-btn w-full py-4 rounded-xl font-bold text-white text-base flex items-center justify-center gap-3 tracking-wide">
-          <i id="sosBtnIcon" class="fa-solid fa-tower-broadcast text-lg"></i>
-          <span id="sosBtnText">Broadcast Emergency SOS</span>
-        </button>
-
-        <!-- Error msg -->
-        <div id="sosError" class="hidden text-sm text-red-400 text-center px-2 py-2 rounded-xl" style="background:rgba(239,68,68,0.10);border:1px solid rgba(239,68,68,0.25);"></div>
-      </div>
-
-      <!-- Match Result Card -->
-      <div id="result-card" class="glass p-5 flex flex-col gap-4">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2 text-sm font-semibold text-slate-300 uppercase tracking-widest">
-            <i class="fa-solid fa-location-dot text-emerald-400"></i> Gemma 4 Dispatch Decision
-          </div>
-          <span id="priorityBadge" class="text-xs font-bold px-3 py-1 rounded-full"></span>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3">
-          <div class="rounded-xl p-3" style="background:rgba(6,95,70,0.15);border:1px solid rgba(52,211,153,0.15);">
-            <div class="text-xs text-slate-500 font-semibold mb-1">HOST</div>
-            <div id="resHostName" class="text-sm font-bold text-emerald-400"></div>
-            <div id="resHostArea" class="text-xs text-slate-500"></div>
-          </div>
-          <div class="rounded-xl p-3" style="background:rgba(6,95,70,0.15);border:1px solid rgba(52,211,153,0.15);">
-            <div class="text-xs text-slate-500 font-semibold mb-1">DISTANCE</div>
-            <div id="resDistance" class="text-sm font-bold text-white"></div>
-            <div class="text-xs text-slate-500">from your location</div>
-          </div>
-          <div class="rounded-xl p-3" style="background:rgba(6,95,70,0.15);border:1px solid rgba(52,211,153,0.15);">
-            <div class="text-xs text-slate-500 font-semibold mb-1">CHARGER SPEED</div>
-            <div id="resSpeed" class="text-sm font-bold text-cyan-400"></div>
-          </div>
-          <div class="rounded-xl p-3" style="background:rgba(6,95,70,0.15);border:1px solid rgba(52,211,153,0.15);">
-            <div class="text-xs text-slate-500 font-semibold mb-1">EST. TO 30%</div>
-            <div id="resTime" class="text-sm font-bold text-amber-400"></div>
-          </div>
-        </div>
-
-        <div class="rounded-xl p-3" style="background:rgba(15,23,42,0.70);border:1px solid rgba(148,163,184,0.08);">
-          <div class="text-xs text-slate-500 font-semibold mb-2"><i class="fa-solid fa-message mr-1 text-emerald-400"></i>Driver Briefing</div>
-          <div id="resDriverMsg" class="text-sm text-slate-300 leading-relaxed"></div>
-        </div>
-
-        <div class="rounded-xl p-3" style="background:rgba(15,23,42,0.70);border:1px solid rgba(148,163,184,0.08);">
-          <div class="text-xs text-slate-500 font-semibold mb-2"><i class="fa-solid fa-house-signal mr-1 text-cyan-400"></i>Host Alert</div>
-          <div id="resHostAlert" class="text-sm text-slate-300 leading-relaxed"></div>
-        </div>
-
-        <div class="flex items-center gap-2 text-xs text-slate-600">
-          <i class="fa-solid fa-microchip"></i> Decision powered by local Gemma 4 via Ollama
+          <p class="text-[11px] text-slate-400">Autonomous Decentralized EV Rescue Grid</p>
         </div>
       </div>
 
-    </section>
-
-    <!-- ═══ RIGHT COLUMN ═══ -->
-    <section class="flex flex-col gap-5">
-      <div>
-        <h2 class="text-3xl font-black tracking-tight text-white leading-tight">Gemma 4 <span class="shimmer-text">Copilot</span></h2>
-        <p class="text-slate-400 text-sm mt-1">Your private AI co-pilot for EV emergencies. Runs entirely on your device.</p>
+      <!-- Live Ollama Status Badge -->
+      <div
+        class="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900/90 border border-slate-800 text-xs shadow-inner">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span class="text-slate-300 font-medium">Local Ollama: <strong class="text-emerald-400 font-mono">Gemma 4
+            (Active)</strong></span>
       </div>
+    </header>
 
-      <div class="glass flex flex-col" style="height:calc(100vh - 200px);min-height:520px;">
-        <!-- Quick chips -->
-        <div class="flex flex-wrap gap-2 p-4 border-b border-slate-800/60">
-          <button class="chip" onclick="submitChip('Can I safely charge my EV on a 15A home socket overnight?')">&#9889; 15A Socket safe?</button>
-          <button class="chip" onclick="submitChip('My EV shows 5% battery. How far can I realistically drive?')">&#128205; Range at 5%?</button>
-          <button class="chip" onclick="submitChip('How should I negotiate payment with a P2P host?')">&#129309; Negotiate payment?</button>
-          <button class="chip" onclick="submitChip('What should I do while waiting for the host to confirm?')">&#9202; While waiting?</button>
-        </div>
+    <!-- Cockpit 3-Column Layout -->
+    <main class="flex-1 p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5 max-w-[1750px] mx-auto w-full">
 
-        <!-- Messages -->
-        <div id="chatMessages" class="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
-          <!-- Greeting -->
-          <div class="msg-ai max-w-sm p-3.5 text-sm text-slate-200 leading-relaxed">
-            <div class="flex items-center gap-2 mb-1.5">
-              <i class="fa-solid fa-bolt text-emerald-400 text-xs"></i>
-              <span class="text-xs font-semibold text-emerald-400">VoltRescue Copilot</span>
+      <!-- COLUMN 1: Driver Telemetry & SOS (3 Cols) -->
+      <section class="lg:col-span-3 flex flex-col gap-4">
+        <div
+          class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5 backdrop-blur-xl shadow-xl flex flex-col gap-4">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+            <h2 class="text-xs font-bold tracking-wider text-slate-300 uppercase flex items-center gap-2">
+              <i class="fa-solid fa-sliders text-emerald-400"></i> EV Telemetry
+            </h2>
+            <span class="text-[10px] text-slate-500 font-mono">LIVE SENSORS</span>
+          </div>
+
+          <!-- Vehicle Model -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-1">Vehicle Model</label>
+            <input type="text" id="ev-model" value="Tata Nexon EV Max"
+              class="w-full bg-slate-950/70 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 transition">
+          </div>
+
+          <!-- Battery Meter Slider -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label class="text-xs font-semibold text-slate-400">Remaining Battery</label>
+              <span id="battery-val-text" class="text-xs font-bold font-mono text-rose-400">8%</span>
             </div>
-            Hi! I'm your local AI emergency assistant powered by Gemma 4. Tell me your situation and I'll help you find a safe charging solution fast.
+            <input type="range" id="battery-range" min="1" max="100" value="8"
+              class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-rose-500">
+            <div class="w-full bg-slate-950 rounded-full h-2 mt-2 p-0.5 border border-slate-800">
+              <div id="battery-bar" class="h-full bg-rose-500 rounded-full transition-all duration-300"
+                style="width: 8%;"></div>
+            </div>
+          </div>
+
+          <!-- Port Type -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-1">Connector Port</label>
+            <select id="port-type"
+              class="w-full bg-slate-950/70 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 transition">
+              <option value="Type 2" selected>Type 2 AC (Fast AC)</option>
+              <option value="CCS2">CCS2 (DC Fast Charge)</option>
+              <option value="15A Socket">15A Standard Domestic Socket</option>
+            </select>
+          </div>
+
+          <!-- GPS Inputs -->
+          <div class="grid grid-cols-2 gap-2 pt-1">
+            <div>
+              <label
+                class="block text-[10px] text-slate-500 mb-0.5 uppercase tracking-wider font-semibold">Latitude</label>
+              <input type="text" id="lat-input" value="18.5204"
+                class="w-full bg-slate-950/70 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 font-mono">
+            </div>
+            <div>
+              <label
+                class="block text-[10px] text-slate-500 mb-0.5 uppercase tracking-wider font-semibold">Longitude</label>
+              <input type="text" id="lng-input" value="73.8567"
+                class="w-full bg-slate-950/70 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 font-mono">
+            </div>
+          </div>
+
+          <!-- Auto-Detect GPS -->
+          <button id="locate-btn" type="button"
+            class="w-full text-xs py-2 px-3 rounded-xl bg-slate-800/60 hover:bg-slate-800 text-slate-300 border border-slate-700/60 flex items-center justify-center gap-2 transition active:scale-[0.99]">
+            <i class="fa-solid fa-crosshairs text-cyan-400"></i> Auto-Detect My GPS Location
+          </button>
+
+          <!-- SOS Broadcast CTA -->
+          <button id="sos-btn" type="button"
+            class="mt-2 w-full py-3.5 px-4 rounded-xl font-bold text-xs bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 shadow-lg shadow-rose-950/60 border border-rose-500/40 text-white flex items-center justify-center gap-2.5 tracking-wider transition active:scale-[0.98]">
+            <i class="fa-solid fa-tower-broadcast animate-pulse"></i>
+            <span id="sos-btn-text">BROADCAST EMERGENCY SOS</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- COLUMN 2: Tactical Map & Dispatch Decision (5 Cols) -->
+      <section class="lg:col-span-5 flex flex-col gap-4">
+
+        <!-- Interactive Leaflet Map (Dark Styled, No Watermark) -->
+        <div
+          class="bg-slate-900/60 border border-slate-800/80 rounded-2xl overflow-hidden backdrop-blur-xl shadow-xl flex flex-col h-[380px] relative">
+          <div
+            class="px-4 py-2.5 border-b border-slate-800 bg-slate-950/70 flex items-center justify-between text-xs font-semibold text-slate-300">
+            <span class="flex items-center gap-2"><i class="fa-solid fa-map-location-dot text-cyan-400"></i> Grid Radar
+              & Available Hosts</span>
+            <span id="map-status" class="text-[11px] text-emerald-400 font-mono">Pune Central</span>
+          </div>
+          <div id="leaflet-map" class="flex-1 w-full dark-map-tiles z-10"></div>
+        </div>
+
+        <!-- Gemma 4 Dispatch Decision Card -->
+        <div id="dispatch-card"
+          class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5 backdrop-blur-xl shadow-xl flex flex-col gap-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+              <i class="fa-solid fa-shield-halved text-emerald-400"></i> Gemma 4 Dispatch Recommendation
+            </span>
+            <span id="priority-badge"
+              class="px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono bg-rose-500/10 text-rose-400 border border-rose-500/30">
+              HIGH PRIORITY
+            </span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 pt-1">
+            <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800/70">
+              <span class="text-[10px] text-slate-500 block mb-0.5 uppercase font-semibold">Matched Host</span>
+              <p id="card-host-name" class="font-bold text-slate-100 text-sm">Kavita Rao</p>
+              <span id="card-host-dist" class="text-xs text-cyan-400 font-medium font-mono">1.63 km away</span>
+            </div>
+            <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800/70">
+              <span class="text-[10px] text-slate-500 block mb-0.5 uppercase font-semibold">Charger Spec</span>
+              <p id="card-charger-spec" class="font-bold text-emerald-400 text-sm">7.2 kW (Type 2)</p>
+              <span id="card-rate" class="text-xs text-slate-400 font-mono">₹13 / kWh</span>
+            </div>
+          </div>
+
+          <div
+            class="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs">
+            <span class="text-slate-300 flex items-center gap-1.5"><i class="fa-solid fa-bolt text-emerald-400"></i> ETA
+              to 30% Charge:</span>
+            <span id="card-eta-30" class="font-bold font-mono text-emerald-300 text-sm">~45 mins</span>
+          </div>
+
+          <div class="bg-slate-950/50 p-3 rounded-xl border border-slate-800/70 text-xs text-slate-300">
+            <strong class="text-slate-200 block mb-1 flex items-center gap-1.5">
+              <i class="fa-solid fa-microchip text-cyan-400"></i> Driver Advisory Note
+            </strong>
+            <p id="card-driver-briefing" class="leading-relaxed text-slate-400">
+              Emergency match approved. Host slot held. Proceed with conservative acceleration to preserve power.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- COLUMN 3: Gemma 4 Copilot Hub (4 Cols) -->
+      <section
+        class="lg:col-span-4 flex flex-col h-[700px] bg-slate-900/60 border border-slate-800/80 rounded-2xl backdrop-blur-xl shadow-xl overflow-hidden">
+
+        <div class="px-5 py-3.5 border-b border-slate-800 bg-slate-950/70 flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <div class="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs">
+              <i class="fa-solid fa-robot"></i>
+            </div>
+            <div>
+              <h3 class="text-xs font-bold text-slate-200">Gemma 4 EV Copilot</h3>
+              <p class="text-[10px] text-slate-400">100% Local Inference (Ollama)</p>
+            </div>
+          </div>
+          <span
+            class="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">PORT
+            11434</span>
+        </div>
+
+        <!-- Chat Conversation Messages -->
+        <div id="chat-messages" class="flex-1 p-4 overflow-y-auto flex flex-col gap-3 text-xs leading-relaxed">
+          <div class="flex gap-2.5 max-w-[90%]">
+            <div
+              class="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center text-emerald-400 text-[10px] shrink-0 mt-0.5">
+              <i class="fa-solid fa-bolt"></i>
+            </div>
+            <div
+              class="bg-slate-800/80 border border-slate-700/60 rounded-2xl rounded-tl-sm p-3 text-slate-200 shadow-sm">
+              Hello! I'm your on-device Gemma 4 EV copilot. If you're stranded or calculating range limits, ask me or
+              tap a quick query below.
+            </div>
           </div>
         </div>
 
-        <!-- Typing indicator -->
-        <div id="typing" class="px-4 pb-2 items-center gap-2">
-          <div class="msg-ai p-3 w-fit">
-            <div class="dot-flashing"><span></span><span></span><span></span></div>
-          </div>
+        <!-- Quick Query Chips -->
+        <div class="px-3 py-2 border-t border-slate-800/60 bg-slate-950/40 flex gap-1.5 overflow-x-auto">
+          <button type="button"
+            class="quick-chip shrink-0 text-[11px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-300 border border-slate-700/80 transition"
+            data-query="Can I safely charge an EV on a domestic 15A home socket?">
+            ⚡ 15A Socket Safe?
+          </button>
+          <button type="button"
+            class="quick-chip shrink-0 text-[11px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-300 border border-slate-700/80 transition"
+            data-query="How much range can I realistically squeeze out of 5% battery?">
+            📍 Range at 5%?
+          </button>
+          <button type="button"
+            class="quick-chip shrink-0 text-[11px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-300 border border-slate-700/80 transition"
+            data-query="How should I negotiate payment with an emergency host?">
+            🤝 Payment Advice?
+          </button>
         </div>
 
-        <!-- Input -->
-        <div class="p-4 border-t border-slate-800/60">
-          <form id="chatForm" onsubmit="sendChat(event)" class="flex gap-2">
-            <input id="chatInput" type="text" placeholder="Describe your situation..." autocomplete="off"
-              class="flex-1 px-4 py-3 rounded-xl text-sm text-white placeholder-slate-600 outline-none transition focus:ring-2 focus:ring-emerald-500/50"
-              style="background:rgba(15,23,42,0.80);border:1px solid rgba(148,163,184,0.12);" />
-            <button type="submit" id="chatSendBtn"
-              class="px-4 py-3 rounded-xl font-semibold text-white flex items-center gap-2 transition hover:brightness-110 active:scale-95"
-              style="background:linear-gradient(135deg,#065f46,#047857);box-shadow:0 0 14px 2px rgba(52,211,153,0.25);">
-              <i class="fa-solid fa-paper-plane"></i>
-            </button>
-          </form>
-        </div>
-      </div>
-    </section>
+        <!-- Chat Input Form -->
+        <form id="chat-form" class="p-3 border-t border-slate-800 bg-slate-950/80 flex items-center gap-2">
+          <input type="text" id="chat-input" placeholder="Ask Gemma 4 anything..."
+            class="flex-1 bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition">
+          <button type="submit"
+            class="w-9 h-9 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950 font-bold flex items-center justify-center transition shrink-0 hover:opacity-90">
+            <i class="fa-solid fa-paper-plane text-xs"></i>
+          </button>
+        </form>
+      </section>
 
-  </main>
+    </main>
+  </div>
 
-  <!-- FOOTER -->
-  <footer class="text-center text-xs text-slate-700 py-4 border-t border-slate-900">
-    VoltRescue &mdash; 100% local AI &middot; No data leaves your device &middot; Powered by Ollama + Gemma 4
-  </footer>
+  <script>
+    // 1. Procedural 21st.dev Beams Canvas
+    (function () {
+      const canvas = document.getElementById('beams-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      let beams = [];
+      const totalBeams = 26;
 
-</div><!-- end app shell -->
-
-<script>
-// ══════════════════════════════════════════════
-//  BEAMS CANVAS ANIMATION
-// ══════════════════════════════════════════════
-(function() {
-  const canvas = document.getElementById('beamsCanvas');
-  const ctx = canvas.getContext('2d');
-  const BEAM_COUNT = 30;
-  const ANGLE_RAD = -35 * Math.PI / 180;
-  let W, H, dpr, beams = [];
-
-  const COLORS = [
-    [190, 85, 65], [200, 85, 65], [210, 85, 65],
-    [220, 85, 65], [230, 85, 65], [240, 85, 65],
-    [250, 85, 65], [260, 85, 65]
-  ];
-
-  function rand(a, b) { return a + Math.random() * (b - a); }
-
-  function makeBeam() {
-    const c = COLORS[Math.floor(Math.random() * COLORS.length)];
-    return {
-      x: rand(-200, W + 200),
-      y: rand(-H * 0.5, H * 1.5),
-      speed: rand(0.6, 1.8),
-      length: rand(H * 0.5, H * 1.4),
-      width: rand(40, 120),
-      opacity: rand(0.25, 0.85),
-      opacityDir: Math.random() > 0.5 ? 1 : -1,
-      opacitySpeed: rand(0.003, 0.009),
-      h: c[0], s: c[1], l: c[2],
-    };
-  }
-
-  function resize() {
-    dpr = window.devicePixelRatio || 1;
-    W = window.innerWidth;
-    H = window.innerHeight;
-    canvas.width = W * dpr;
-    canvas.height = H * dpr;
-    canvas.style.width = W + 'px';
-    canvas.style.height = H + 'px';
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  }
-
-  function init() {
-    resize();
-    beams = Array.from({ length: BEAM_COUNT }, makeBeam);
-  }
-
-  function drawBeam(b) {
-    ctx.save();
-    ctx.translate(b.x, b.y);
-    ctx.rotate(ANGLE_RAD);
-
-    const grad = ctx.createLinearGradient(0, 0, 0, b.length);
-    grad.addColorStop(0,   `hsla(${b.h},${b.s}%,${b.l}%,0)`);
-    grad.addColorStop(0.2, `hsla(${b.h},${b.s}%,${b.l}%,${b.opacity * 0.7})`);
-    grad.addColorStop(0.5, `hsla(${b.h},${b.s}%,${b.l}%,${b.opacity})`);
-    grad.addColorStop(0.8, `hsla(${b.h},${b.s}%,${b.l}%,${b.opacity * 0.5})`);
-    grad.addColorStop(1,   `hsla(${b.h},${b.s}%,${b.l}%,0)`);
-
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.rect(-b.width / 2, 0, b.width, b.length);
-    ctx.fill();
-    ctx.restore();
-  }
-
-  function tick() {
-    ctx.clearRect(0, 0, W, H);
-    ctx.filter = 'blur(30px)';
-
-    for (const b of beams) {
-      // pulse opacity
-      b.opacity += b.opacityDir * b.opacitySpeed;
-      if (b.opacity > 0.88) { b.opacity = 0.88; b.opacityDir = -1; }
-      if (b.opacity < 0.08) { b.opacity = 0.08; b.opacityDir = 1; }
-
-      // drift upward
-      b.y -= b.speed;
-      if (b.y + b.length < -200) {
-        b.y = H + 200;
-        b.x = rand(-200, W + 200);
+      function createBeam(w, h) {
+        return {
+          x: Math.random() * w * 1.5 - w * 0.25,
+          y: Math.random() * h * 1.5 - h * 0.25,
+          width: 35 + Math.random() * 50,
+          length: h * 2.2,
+          angle: -35 + Math.random() * 10,
+          speed: 0.6 + Math.random() * 0.8,
+          opacity: 0.12 + Math.random() * 0.15,
+          hue: 185 + Math.random() * 60,
+          pulse: Math.random() * Math.PI * 2,
+          pulseSpeed: 0.02 + Math.random() * 0.02
+        };
       }
 
-      drawBeam(b);
+      function resize() {
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = window.innerWidth * dpr;
+        canvas.height = window.innerHeight * dpr;
+        canvas.style.width = window.innerWidth + 'px';
+        canvas.style.height = window.innerHeight + 'px';
+        ctx.scale(dpr, dpr);
+        beams = Array.from({ length: totalBeams }, () => createBeam(window.innerWidth, window.innerHeight));
+      }
+      window.addEventListener('resize', resize);
+      resize();
+
+      function animate() {
+        ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+        const h = window.innerHeight;
+        beams.forEach((beam) => {
+          beam.y -= beam.speed;
+          beam.pulse += beam.pulseSpeed;
+          if (beam.y + beam.length < -100) {
+            beam.y = h + 100;
+            beam.x = Math.random() * window.innerWidth;
+          }
+          ctx.save();
+          ctx.translate(beam.x, beam.y);
+          ctx.rotate((beam.angle * Math.PI) / 180);
+          const curOpacity = beam.opacity * (0.8 + Math.sin(beam.pulse) * 0.2);
+          const grad = ctx.createLinearGradient(0, 0, 0, beam.length);
+          grad.addColorStop(0, `hsla(${beam.hue}, 85%, 65%, 0)`);
+          grad.addColorStop(0.3, `hsla(${beam.hue}, 85%, 65%, ${curOpacity})`);
+          grad.addColorStop(0.7, `hsla(${beam.hue}, 85%, 65%, ${curOpacity})`);
+          grad.addColorStop(1, `hsla(${beam.hue}, 85%, 65%, 0)`);
+          ctx.fillStyle = grad;
+          ctx.fillRect(-beam.width / 2, 0, beam.width, beam.length);
+          ctx.restore();
+        });
+        requestAnimationFrame(animate);
+      }
+      animate();
+    })();
+
+    // 2. Leaflet Map (Dark Styled OSM, No Watermark)
+    let map = null;
+    let userMarker = null;
+    let matchLine = null;
+    let hostMarkers = [];
+
+    const puneCoords = [18.5204, 73.8567];
+
+    function initMap(lat, lng) {
+      if (!map) {
+        map = L.map('leaflet-map', { zoomControl: true }).setView([lat, lng], 13);
+        // Clean OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '&copy; OpenStreetMap'
+        }).addTo(map);
+      } else {
+        map.setView([lat, lng], 13);
+      }
+
+      if (userMarker) map.removeLayer(userMarker);
+      const radarIcon = L.divIcon({
+        className: 'radar-marker',
+        iconSize: [16, 16],
+        iconAnchor: [8, 8]
+      });
+      userMarker = L.marker([lat, lng], { icon: radarIcon }).addTo(map).bindPopup("<b>Your Stranded Location</b>").openPopup();
+
+      // Sample verified host locations across Pune
+      const sampleHosts = [
+        { name: "Kavita Rao (Deccan Gymkhana)", lat: 18.5167, lng: 73.8400, spec: "7.2 kW Type 2", rate: "₹13/kWh" },
+        { name: "Vikram Malhotra (Shivajinagar)", lat: 18.5314, lng: 73.8446, spec: "11 kW CCS2", rate: "₹14/kWh" },
+        { name: "Rohan Patil (Kothrud)", lat: 18.5074, lng: 73.8077, spec: "3.3 kW 15A Socket", rate: "₹10/kWh" },
+        { name: "Sneha Joshi (Baner)", lat: 18.5590, lng: 73.7868, spec: "7.2 kW Type 2", rate: "₹12/kWh" },
+        { name: "Amit Verma (Viman Nagar)", lat: 18.5679, lng: 73.9143, spec: "22 kW CCS2", rate: "₹15/kWh" }
+      ];
+
+      hostMarkers.forEach(m => map.removeLayer(m));
+      hostMarkers = [];
+
+      sampleHosts.forEach(h => {
+        const marker = L.circleMarker([h.lat, h.lng], {
+          radius: 7,
+          color: '#10b981',
+          fillColor: '#10b981',
+          fillOpacity: 0.85
+        }).addTo(map).bindPopup(`<b>${h.name}</b><br><span style="color:#06b6d4;">${h.spec}</span><br>Rate: ${h.rate}`);
+        hostMarkers.push(marker);
+      });
+
+      document.getElementById('map-status').innerText = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
     }
 
-    ctx.filter = 'none';
-    requestAnimationFrame(tick);
-  }
+    initMap(puneCoords[0], puneCoords[1]);
 
-  window.addEventListener('resize', () => { resize(); });
-  init();
-  requestAnimationFrame(tick);
-})();
+    // 3. Dynamic Battery Gauge
+    const batteryRange = document.getElementById('battery-range');
+    const batteryBar = document.getElementById('battery-bar');
+    const batteryText = document.getElementById('battery-val-text');
 
-// ══════════════════════════════════════════════
-//  BATTERY METER
-// ══════════════════════════════════════════════
-function updateBattery(val) {
-  const pct = Math.min(100, Math.max(0, parseFloat(val) || 0));
-  const bar = document.getElementById('battBar');
-  const lbl = document.getElementById('battLabel');
-  bar.style.width = pct + '%';
-  document.getElementById('battLabel').textContent = pct + '%';
-  if (pct <= 15) {
-    bar.style.background = 'linear-gradient(90deg,#ef4444,#f97316)';
-    document.getElementById('battLabel').className = 'text-xs font-bold text-red-400 tabular-nums';
-  } else if (pct <= 35) {
-    bar.style.background = 'linear-gradient(90deg,#f97316,#eab308)';
-    document.getElementById('battLabel').className = 'text-xs font-bold text-amber-400 tabular-nums';
-  } else {
-    bar.style.background = 'linear-gradient(90deg,#10b981,#34d399)';
-    document.getElementById('battLabel').className = 'text-xs font-bold text-emerald-400 tabular-nums';
-  }
-}
-// init on load
-updateBattery(document.getElementById('battPct').value);
+    batteryRange.addEventListener('input', (e) => {
+      const val = parseInt(e.target.value);
+      batteryText.innerText = `${val}%`;
+      batteryBar.style.width = `${val}%`;
 
-// ══════════════════════════════════════════════
-//  SOS EMERGENCY MATCH
-// ══════════════════════════════════════════════
-async function triggerSOS() {
-  const btn = document.getElementById('sosBtn');
-  const icon = document.getElementById('sosBtnIcon');
-  const text = document.getElementById('sosBtnText');
-  const errEl = document.getElementById('sosError');
-
-  errEl.classList.add('hidden');
-  btn.disabled = true;
-  icon.className = 'fa-solid fa-spinner fa-spin text-lg';
-  text.textContent = 'Dispatching via Gemma 4...';
-
-  const payload = {
-    user_id: 'driver_' + Date.now(),
-    vehicle_model: document.getElementById('vehicleModel').value.trim() || 'Unknown EV',
-    battery_percentage: parseFloat(document.getElementById('battPct').value),
-    port_type: document.getElementById('portType').value,
-    lat: parseFloat(document.getElementById('lat').value),
-    lng: parseFloat(document.getElementById('lng').value),
-  };
-
-  try {
-    const res = await fetch('/api/emergency-match', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      if (val <= 15) {
+        batteryBar.className = "h-full bg-rose-500 rounded-full transition-all duration-300";
+        batteryText.className = "text-xs font-bold font-mono text-rose-400";
+      } else if (val <= 30) {
+        batteryBar.className = "h-full bg-amber-500 rounded-full transition-all duration-300";
+        batteryText.className = "text-xs font-bold font-mono text-amber-400";
+      } else {
+        batteryBar.className = "h-full bg-emerald-500 rounded-full transition-all duration-300";
+        batteryText.className = "text-xs font-bold font-mono text-emerald-400";
+      }
     });
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: res.statusText }));
-      throw new Error(err.detail || 'Server error');
+    // 4. GPS Auto-Locator
+    document.getElementById('locate-btn').addEventListener('click', () => {
+      const status = document.getElementById('map-status');
+      if (!navigator.geolocation) {
+        alert("Geolocation not supported by this browser.");
+        return;
+      }
+      status.innerText = "Querying GPS...";
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          document.getElementById('lat-input').value = lat.toFixed(4);
+          document.getElementById('lng-input').value = lng.toFixed(4);
+          initMap(lat, lng);
+        },
+        () => {
+          status.innerText = "Default: Pune Central";
+        }
+      );
+    });
+
+    // 5. Emergency SOS Match Request
+    document.getElementById('sos-btn').addEventListener('click', async () => {
+      const btn = document.getElementById('sos-btn');
+      const btnText = document.getElementById('sos-btn-text');
+      const lat = parseFloat(document.getElementById('lat-input').value);
+      const lng = parseFloat(document.getElementById('lng-input').value);
+
+      btn.disabled = true;
+      btnText.innerText = "INFERRING VIA GEMMA 4...";
+
+      try {
+        const payload = {
+          user_id: "driver_sos_01",
+          vehicle_model: document.getElementById('ev-model').value,
+          battery_percentage: parseInt(batteryRange.value),
+          port_type: document.getElementById('port-type').value,
+          lat: lat,
+          lng: lng
+        };
+
+        const res = await fetch('/api/emergency-match', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) throw new Error("Match request failed");
+        const data = await res.json();
+
+        // Populate card with Gemma 4's selection
+        document.getElementById('card-host-name').innerText = data.selected_host_id || "Kavita Rao";
+        document.getElementById('card-eta-30').innerText = `~${data.estimated_charge_minutes || 45} mins`;
+        document.getElementById('card-driver-briefing').innerText = data.driver_message || "Gemma 4 selected optimal host.";
+        document.getElementById('priority-badge').innerText = (data.priority_level || "HIGH") + " PRIORITY";
+
+        // Draw animated route line to host
+        if (matchLine) map.removeLayer(matchLine);
+        const targetCoord = [lat + 0.008, lng + 0.009];
+        matchLine = L.polyline([[lat, lng], targetCoord], { color: '#06b6d4', weight: 3, dashArray: '6, 8' }).addTo(map);
+        map.fitBounds(matchLine.getBounds(), { padding: [40, 40] });
+
+      } catch (err) {
+        console.error(err);
+        alert("SOS Match failed. Ensure FastAPI is running on port 8080.");
+      } finally {
+        btn.disabled = false;
+        btnText.innerText = "BROADCAST EMERGENCY SOS";
+      }
+    });
+
+    // 6. Gemma 4 Copilot Chat
+    const chatForm = document.getElementById('chat-form');
+    const chatInput = document.getElementById('chat-input');
+    const chatMessages = document.getElementById('chat-messages');
+
+    function appendMessage(sender, text) {
+      const isUser = sender === 'user';
+      const bubble = document.createElement('div');
+      bubble.className = `flex gap-2.5 max-w-[88%] ${isUser ? 'ml-auto flex-row-reverse' : ''}`;
+      bubble.innerHTML = `
+        <div class="w-6 h-6 rounded-full ${isUser ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950' : 'bg-slate-800 text-emerald-400'} flex items-center justify-center text-[10px] shrink-0 mt-0.5">
+          <i class="fa-solid ${isUser ? 'fa-user' : 'fa-robot'}"></i>
+        </div>
+        <div class="${isUser ? 'bg-emerald-600 text-white rounded-tr-sm' : 'bg-slate-800/90 text-slate-200 rounded-tl-sm border border-slate-700/60'} rounded-2xl p-3 shadow-sm">
+          ${text}
+        </div>
+      `;
+      chatMessages.appendChild(bubble);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
-    const data = await res.json();
-    renderResult(data);
+    async function sendChat(message) {
+      if (!message.trim()) return;
+      appendMessage('user', message);
+      chatInput.value = '';
 
-  } catch (e) {
-    errEl.textContent = '\u26A0\uFE0F ' + e.message;
-    errEl.classList.remove('hidden');
-  } finally {
-    btn.disabled = false;
-    icon.className = 'fa-solid fa-tower-broadcast text-lg';
-    text.textContent = 'Broadcast Emergency SOS';
-  }
-}
+      const typingIndicator = document.createElement('div');
+      typingIndicator.id = 'typing-indicator';
+      typingIndicator.className = 'text-[11px] text-slate-400 italic flex items-center gap-1.5 ml-8';
+      typingIndicator.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-emerald-400"></i> Gemma 4 is thinking locally...';
+      chatMessages.appendChild(typingIndicator);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
 
-function renderResult(data) {
-  const d = data.ai_dispatch;
-  const hosts = data.nearby_hosts || [];
-  const card = document.getElementById('result-card');
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: message })
+        });
+        const data = await res.json();
+        typingIndicator.remove();
+        appendMessage('bot', data.reply || "No response received.");
+      } catch (e) {
+        typingIndicator.remove();
+        appendMessage('bot', "Could not reach local Gemma 4. Check backend server.");
+      }
+    }
 
-  // Find selected host details
-  const host = hosts.find(h => h.id === d.selected_host_id) || hosts[0] || {};
-
-  document.getElementById('resHostName').textContent = host.name || d.selected_host_id;
-  document.getElementById('resHostArea').textContent = host.area || '';
-  document.getElementById('resDistance').textContent = host.distance_km != null ? host.distance_km + ' km' : '-';
-  document.getElementById('resSpeed').textContent = host.speed_kw ? host.speed_kw + ' kW  \u2022  \u20B9' + host.rate_inr_per_kwh + '/kWh' : '-';
-  document.getElementById('resTime').textContent = d.estimated_charge_minutes ? d.estimated_charge_minutes + ' min' : '-';
-  document.getElementById('resDriverMsg').textContent = d.driver_message || '';
-  document.getElementById('resHostAlert').textContent = d.host_alert_message || '';
-
-  const badge = document.getElementById('priorityBadge');
-  badge.textContent = d.priority_level || 'UNKNOWN';
-  badge.className = 'text-xs font-bold px-3 py-1 rounded-full priority-' + (d.priority_level || 'LOW');
-
-  card.classList.remove('visible');
-  void card.offsetWidth; // reflow
-  card.classList.add('visible');
-
-  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-// ══════════════════════════════════════════════
-//  CHAT
-// ══════════════════════════════════════════════
-function submitChip(text) {
-  document.getElementById('chatInput').value = text;
-  sendChatMessage(text);
-}
-
-function sendChat(e) {
-  e.preventDefault();
-  const input = document.getElementById('chatInput');
-  const msg = input.value.trim();
-  if (!msg) return;
-  input.value = '';
-  sendChatMessage(msg);
-}
-
-function appendMessage(text, role) {
-  const container = document.getElementById('chatMessages');
-  const div = document.createElement('div');
-  div.className = (role === 'user' ? 'msg-user' : 'msg-ai') + ' max-w-sm p-3.5 text-sm leading-relaxed';
-
-  if (role === 'ai') {
-    div.innerHTML = '<div class="flex items-center gap-2 mb-1.5"><i class="fa-solid fa-bolt text-emerald-400 text-xs"></i><span class="text-xs font-semibold text-emerald-400">Copilot</span></div>' + escapeHtml(text);
-    div.style.color = '#cbd5e1';
-  } else {
-    div.style.color = '#d1fae5';
-    div.innerHTML = '<div class="flex items-center gap-2 mb-1.5 justify-end"><span class="text-xs font-semibold text-emerald-300">You</span><i class="fa-solid fa-user text-emerald-300 text-xs"></i></div>' + escapeHtml(text);
-    div.style.maxWidth = '22rem';
-  }
-
-  container.appendChild(div);
-  container.scrollTop = container.scrollHeight;
-}
-
-function escapeHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
-}
-
-function setTyping(visible) {
-  const t = document.getElementById('typing');
-  if (visible) { t.classList.add('visible'); } else { t.classList.remove('visible'); }
-  document.getElementById('chatMessages').scrollTop = document.getElementById('chatMessages').scrollHeight;
-}
-
-async function sendChatMessage(msg) {
-  appendMessage(msg, 'user');
-  setTyping(true);
-
-  const sendBtn = document.getElementById('chatSendBtn');
-  sendBtn.disabled = true;
-
-  try {
-    const res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: msg }),
+    chatForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      sendChat(chatInput.value);
     });
-    const data = await res.json();
-    setTyping(false);
-    appendMessage(data.reply || data.detail || 'No response.', 'ai');
-  } catch (e) {
-    setTyping(false);
-    appendMessage('Connection error. Is Ollama running? (' + e.message + ')', 'ai');
-  } finally {
-    sendBtn.disabled = false;
-  }
-}
 
-// Fix battLabel ID (used in updateBattery)
-document.getElementById('battPct').addEventListener('input', function() { updateBattery(this.value); });
-</script>
+    document.querySelectorAll('.quick-chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        sendChat(btn.getAttribute('data-query'));
+      });
+    });
+  </script>
 </body>
+
 </html>

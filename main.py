@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-import requests, math, json
+import requests, math, json, time
 
 app = FastAPI(title="VoltRescue API", version="1.0.0")
 
@@ -17,12 +17,30 @@ def serve_index():
 OLLAMA_URL = "http://127.0.0.1:11434/api/chat"
 MODEL = "gemma4"
 
-def ollama_chat(messages: list[dict], stream: bool = False) -> str:
+def ollama_chat(messages: list[dict], stream: bool = False, label: str = "REQUEST") -> str:
+
+    print(f"\n[GEMMA 4 CALLING] Querying local Ollama on 127.0.0.1:11434 with model '{MODEL}'...")
+    t0 = time.perf_counter()
     payload = {"model": MODEL, "messages": messages, "stream": stream}
     resp = requests.post(OLLAMA_URL, json=payload, timeout=120)
     resp.raise_for_status()
-    return resp.json()["message"]["content"]
+    content = resp.json()["message"]["content"]
+    elapsed = round(time.perf_counter() - t0, 2)
+    summary = content[:120].replace("\n", " ") + ("..." if len(content) > 120 else "")
 
+    print(f"[GEMMA 4 RESPONSE] Generated in {elapsed}s: {summary}")
+    try:
+        data = json.loads(content)
+        print("\n" + "═" * 55)
+        print("🧠 [GEMMA 4 SITUATION & DISPATCH ANALYSIS]")
+        print("═" * 55)
+        for key, value in data.items():
+            print(f"• {key.replace('_', ' ').title()}: {value}")
+        print("═" * 55 + "\n")
+    except Exception:
+        pass
+    return content
+    
 # Haversine
 def haversine(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     R = 6371.0
@@ -65,6 +83,14 @@ class ChatRequest(BaseModel):
 # POST /api/emergency-match
 @app.post("/api/emergency-match")
 def emergency_match(req: EmergencyRequest):
+    print(f"\n{'='*60}")
+    print(f"[GEMMA 4 INCOMING] Emergency SOS Dispatch Request")
+    print(f"  User      : {req.user_id}")
+    print(f"  Vehicle   : {req.vehicle_model}")
+    print(f"  Battery   : {req.battery_percentage}%")
+    print(f"  Port      : {req.port_type}")
+    print(f"  Location  : ({req.lat}, {req.lng})")
+
     nearby = []
     for h in HOSTS:
         if not h["active"]:
@@ -76,9 +102,13 @@ def emergency_match(req: EmergencyRequest):
             nearby.append({**h, "distance_km": round(dist, 2)})
 
     if not nearby:
+        print(f"[GEMMA 4 ERROR] No compatible hosts within 10 km for port={req.port_type}")
         raise HTTPException(status_code=404, detail="No compatible charging hosts found within 10 km.")
 
     nearby.sort(key=lambda x: x["distance_km"])
+    print(f"  Eligible hosts: {len(nearby)} found within 10 km")
+    for h in nearby[:3]:
+        print(f"    - {h['id']} {h['name']} ({h['area']}) @ {h['distance_km']} km")
 
     host_summary = "\n".join(
         f"- ID:{h['id']} | {h['name']} ({h['area']}) | {h['distance_km']} km | "
@@ -109,10 +139,14 @@ def emergency_match(req: EmergencyRequest):
         raw = ollama_chat([
             {"role": "system", "content": system_prompt},
             {"role": "user",   "content": user_content},
-        ])
+        ], label="DISPATCH")
         clean = raw.strip().strip("```json").strip("```").strip()
         result = json.loads(clean)
+        print(f"[GEMMA 4 DISPATCH] Selected host: {result.get('selected_host_id')} | Priority: {result.get('priority_level')}")
+        print(f"{'='*60}\n")
     except Exception as e:
+        print(f"[GEMMA 4 ERROR] Dispatch failed: {e}")
+        print(f"{'='*60}\n")
         raise HTTPException(status_code=502, detail=f"Ollama error: {e}")
 
     return {"ai_dispatch": result, "nearby_hosts": nearby}
@@ -120,6 +154,7 @@ def emergency_match(req: EmergencyRequest):
 # POST /api/chat
 @app.post("/api/chat")
 def ev_chat(req: ChatRequest):
+    print(f"\n[GEMMA 4 INCOMING] Copilot chat message: {req.message[:100]}")
     system_prompt = (
         "You are VoltRescue Copilot, a concise calm emergency assistant for stranded EV drivers in India. "
         "Provide short actionable advice on EV charging, range anxiety, finding help, and safety. "
@@ -129,8 +164,9 @@ def ev_chat(req: ChatRequest):
         reply = ollama_chat([
             {"role": "system", "content": system_prompt},
             {"role": "user",   "content": req.message},
-        ])
+        ], label="CHAT")
     except Exception as e:
+        print(f"[GEMMA 4 ERROR] Chat failed: {e}")
         raise HTTPException(status_code=502, detail=f"Ollama error: {e}")
 
     return {"reply": reply}

@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="VoltRescue — Production P2P Emergency EV Charging Dispatch Grid powered by on-device Gemma 4 AI.">
+  <meta name="theme-color" content="#090D16">
+  <title>VoltRescue — P2P Emergency EV Charging Dispatch</title>
+
+  <!-- Favicon (Inline SVG Bolt) -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2334D399'%3E%3Cpath d='M13 2L3 14h9l-1 8 10-12h-9l1-8z'/%3E%3C/svg%3E">
+
+  <!-- Google Fonts: Inter (UI), Space Grotesk (Headings/Numerals), JetBrains Mono (Metrics) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Inter"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+            heading: ['"Space Grotesk"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            page: '#090D16',
+            surface: '#0B0E14',
+            raised: '#0F141D',
+            brand: {
+              emerald: '#34D399',
+              amber: '#FBBF24',
+              rose: '#FB7185',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Leaflet CSS & JS (Pinned v1.9.4) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- GSAP 3 & ScrollTrigger (Pinned CDN) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+
+  <!-- Lenis Smooth Scroll (Pinned CDN) -->
+  <script src="https://unpkg.com/lenis@1.1.18/dist/lenis.min.js"></script>
+
+  <style>
+    /* Design Tokens & CSS Variables */
+    :root {
+      --bg-page: #090D16;
+      --bg-surface: #0B0E14;
+      --bg-raised: #0F141D;
+      --border-subtle: #1E293B;
+      --border-hover: #334155;
+      --text-primary: #F8FAFC;
+      --text-secondary: #94A3B8;
+      --text-tertiary: #64748B;
+      --color-emerald: #34D399;
+      --color-amber: #FBBF24;
+      --color-rose: #FB7185;
+      --ease-signature: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      font-variant-numeric: tabular-nums;
+    }
+
+    body {
+      background-color: var(--bg-page);
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      overflow-x: hidden;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Subtle Background Noise Overlay (3% opacity) */
+    .noise-overlay {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+      opacity: 0.025;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    }
+
+    /* Subtle ambient radial glow behind hero */
+    .hero-radial-glow {
+      position: absolute;
+      top: -120px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 780px;
+      height: 480px;
+      background: radial-gradient(circle, rgba(52, 211, 153, 0.05) 0%, rgba(9, 13, 22, 0) 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Bento Card Architecture */
+    .bento-card {
+      position: relative;
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      transition: border-color 0.25s var(--ease-signature), transform 0.25s var(--ease-signature);
+      overflow: hidden;
+    }
+
+    .bento-card:hover {
+      border-color: var(--border-hover);
+      transform: translateY(-2px);
+    }
+
+    /* Cursor Spotlight Effect */
+    .bento-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: radial-gradient(500px circle at var(--mx, -500px) var(--my, -500px), rgba(255, 255, 255, 0.035), transparent 70%);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      z-index: 2;
+    }
+
+    .bento-card:hover::before {
+      opacity: 1;
+    }
+
+    /* Reliable Leaflet Map Dark Styling (Strictly on Tile Pane) */
+    .leaflet-tile-pane {
+      filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+    }
+
+    .leaflet-container {
+      background: #0B0E14 !important;
+      font-family: 'Inter', sans-serif !important;
+    }
+
+    /* Minimalist Leaflet Popups */
+    .leaflet-popup-content-wrapper {
+      background: #0F141D !important;
+      border: 1px solid #1E293B !important;
+      border-radius: 12px !important;
+      color: #F8FAFC !important;
+      box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.6) !important;
+      padding: 0 !important;
+    }
+
+    .leaflet-popup-content {
+      margin: 12px 14px !important;
+      line-height: 1.4 !important;
+    }
+
+    .leaflet-popup-tip {
+      background: #0F141D !important;
+      border: 1px solid #1E293B !important;
+    }
+
+    /* Minimal Leaflet Zoom Control Bottom Right */
+    .leaflet-bottom.leaflet-right .leaflet-control-zoom {
+      margin-bottom: 20px;
+      margin-right: 20px;
+      border: 1px solid #1E293B !important;
+      border-radius: 8px !important;
+      overflow: hidden;
+      background: #0F141D !important;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5) !important;
+    }
+
+    .leaflet-control-zoom a {
+      background: #0F141D !important;
+      color: #94A3B8 !important;
+      border-bottom: 1px solid #1E293B !important;
+      transition: all 0.2s ease !important;
+    }
+
+    .leaflet-control-zoom a:hover {
+      background: #1E293B !important;
+      color: #F8FAFC !important;
+    }
+
+    .leaflet-control-zoom a:last-child {
+      border-bottom: none !important;
+    }
+
+    .leaflet-control-attribution {
+      background: rgba(11, 14, 20, 0.85) !important;
+      color: #64748B !important;
+      font-size: 10px !important;
+      backdrop-filter: blur(6px);
+      border-top-left-radius: 6px;
+    }
+
+    .leaflet-control-attribution a {
+      color: #94A3B8 !important;
+      text-decoration: none;
+    }
+
+    /* Animated Map Route Line */
+    @keyframes routeDash {
+      to {
+        stroke-dashoffset: -40;
+      }
+    }
+
+    .route-line-anim {
+      stroke-linecap: round;
+      animation: routeDash 2s linear infinite;
+    }
+
+    /* Driver Locator Ring Animation */
+    @keyframes softPulseRing {
+      0% {
+        transform: scale(0.9);
+        opacity: 0.8;
+      }
+      70% {
+        transform: scale(1.8);
+        opacity: 0;
+      }
+      100% {
+        transform: scale(1.8);
+        opacity: 0;
+      }
+    }
+
+    .driver-pulse-ring {
+      animation: softPulseRing 2.4s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+    }
+
+    /* Subtle custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1E293B;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #334155;
+    }
+
+    /* Motion Accessibility */
+    @media (prefers-reduced-motion: reduce) {
+      *, ::before, ::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+
+<body class="selection:bg-emerald-500/20 selection:text-emerald-300">
+
+  <!-- Faint noise & ambient glow -->
+  <div class="noise-overlay"></div>
+  <div class="hero-radial-glow"></div>
+
+  <!-- Background Canvas preserved for JS ID compatibility (hidden) -->
+  <canvas id="beams-canvas" class="hidden"></canvas>
+
+  <!-- Sticky Top Navigation (56px) -->
+  <header class="sticky top-0 z-40 h-14 border-b border-slate-800/80 bg-[#090D16]/90 backdrop-blur-md transition-all duration-200">
+    <div class="max-w-7xl mx-auto h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+      
+      <!-- Logo + Brand -->
+      <div class="flex items-center gap-3">
+        <div class="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+          <!-- Lucide Bolt SVG -->
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="font-heading font-semibold text-sm tracking-tight text-white">VoltRescue</span>
+          <span class="text-[11px] font-medium text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded-full">
+            Pune
+          </span>
+        </div>
+      </div>
+
+      <!-- Right Indicators & Actions -->
+      <div class="flex items-center gap-3 text-xs">
+        
+        <!-- Verified Host Count -->
+        <div class="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-md bg-[#0B0E14] border border-slate-800 text-slate-300">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+          <span>15 hosts online</span>
+        </div>
+
+        <!-- Local Gemma 4 Status Pill -->
+        <div class="flex items-center gap-2 px-2.5 py-1 rounded-md bg-[#0B0E14] border border-slate-800 text-slate-300">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>Gemma 4 · <span class="text-slate-400 font-mono text-[11px]">on-device</span></span>
+        </div>
+
+        <!-- AI Copilot Drawer Trigger -->
+        <button id="open-chat-btn" type="button"
+          class="flex items-center gap-1.5 px-3 py-1 rounded-md bg-slate-800/80 hover:bg-slate-800 text-slate-200 border border-slate-700/80 transition text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span class="hidden sm:inline">Copilot</span>
+        </button>
+
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Main Scrollable Bento Layout Container -->
+  <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+    <!-- ======================================================== -->
+    <!-- ROW 1: TELEMETRY BENTO (HERO)                            -->
+    <!-- ======================================================== -->
+    <section class="space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="font-heading font-semibold text-lg text-white tracking-tight">Live telemetry</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Vehicle sensor feed and current state of charge.</p>
+        </div>
+        <div class="flex items-center gap-1.5 text-xs text-slate-400">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+          <span>Sensors synchronized</span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+        <!-- Large Card (Span 7): Battery Diagnostics -->
+        <div class="bento-card lg:col-span-7 p-6 sm:p-7 flex flex-col justify-between gap-6">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-800/80">
+            <span class="text-xs font-medium text-slate-400 uppercase tracking-wider flex items-center gap-2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400">
+                <rect x="2" y="7" width="16" height="10" rx="2" ry="2"></rect>
+                <line x1="22" y1="11" x2="22" y2="13"></line>
+              </svg>
+              Battery
+            </span>
+            <span id="battery-status-tag" class="text-xs font-medium px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20">
+              Critical reserve
+            </span>
+          </div>
+
+          <!-- Prominent Battery Gauge Readout -->
+          <div class="my-auto space-y-4">
+            <div class="flex items-baseline justify-between">
+              <div>
+                <span class="text-xs text-slate-400 block mb-1">State of charge</span>
+                <span id="battery-val-text" class="font-heading text-5xl font-bold tracking-tight text-rose-400 tabular-nums">8%</span>
+              </div>
+              <div class="text-right">
+                <span class="text-xs text-slate-400 block mb-1">Estimated reserve range</span>
+                <span id="est-range-text" class="font-mono text-sm font-semibold text-slate-200">~9 km</span>
+              </div>
+            </div>
+
+            <!-- Horizontal Segmented Power Rail -->
+            <div class="w-full bg-slate-950/80 rounded-xl h-4 p-0.5 border border-slate-800 overflow-hidden relative">
+              <div id="battery-bar" class="h-full bg-rose-500 rounded-lg transition-all duration-300" style="width: 8%;"></div>
+            </div>
+
+            <!-- Interactive Simulated Range Slider -->
+            <div class="pt-2">
+              <div class="flex justify-between text-xs text-slate-400 mb-1.5 font-medium">
+                <span>Simulate battery percentage</span>
+                <span class="font-mono text-slate-400">1% – 100%</span>
+              </div>
+              <input type="range" id="battery-range" min="1" max="100" value="8"
+                class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-slate-300 focus:outline-none focus:ring-1 focus:ring-slate-600">
+            </div>
+          </div>
+
+          <div class="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+            <span>Critical depletion threshold: 15%</span>
+            <span class="text-slate-400 font-mono">60 kWh Pack</span>
+          </div>
+        </div>
+
+        <!-- Medium Card (Span 5): Vehicle & Navigation -->
+        <div class="bento-card lg:col-span-5 p-6 sm:p-7 flex flex-col justify-between gap-5">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-800/80">
+            <span class="text-xs font-medium text-slate-400 uppercase tracking-wider flex items-center gap-2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400">
+                <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 2.8C2.1 11 2 11.5 2 12v4c0 .6.4 1 1 1h2"></path>
+                <circle cx="7" cy="17" r="2"></circle>
+                <path d="M9 17h6"></path>
+                <circle cx="17" cy="17" r="2"></circle>
+              </svg>
+              Vehicle
+            </span>
+            <span class="text-[11px] font-mono text-emerald-400">VERIFIED</span>
+          </div>
+
+          <div class="space-y-4">
+            <!-- Vehicle Model Input -->
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1.5">Vehicle model</label>
+              <input type="text" id="ev-model" value="Tata Nexon EV Max"
+                class="w-full bg-[#0F141D] border border-slate-800 focus:border-slate-600 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none transition">
+            </div>
+
+            <!-- Connector Port Select -->
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1.5">Connector</label>
+              <select id="port-type"
+                class="w-full bg-[#0F141D] border border-slate-800 focus:border-slate-600 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 focus:outline-none transition">
+                <option value="Type 2" selected>Type 2 AC (Fast AC)</option>
+                <option value="CCS2">CCS2 (DC Fast Charge)</option>
+                <option value="15A Socket">15A Standard Domestic Socket</option>
+              </select>
+            </div>
+
+            <!-- Coordinates Grid -->
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <label class="text-xs font-medium text-slate-400">Coordinates</label>
+                <button id="locate-btn" type="button"
+                  class="text-xs text-emerald-400 hover:text-emerald-300 transition flex items-center gap-1 font-medium focus-visible:outline-none">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="22" y1="12" x2="18" y2="12"></line>
+                    <line x1="6" y1="12" x2="2" y2="12"></line>
+                    <line x1="12" y1="6" x2="12" y2="2"></line>
+                    <line x1="12" y1="22" x2="12" y2="18"></line>
+                  </svg>
+                  <span>Use my location</span>
+                </button>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <input type="text" id="lat-input" value="18.5204"
+                  class="w-full bg-[#0F141D] border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none">
+                <input type="text" id="lng-input" value="73.8567"
+                  class="w-full bg-[#0F141D] border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none">
+              </div>
+            </div>
+          </div>
+
+          <div class="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+            <span>Location lock: Pune Central</span>
+            <span class="font-mono text-slate-400">WGS84</span>
+          </div>
+        </div>
+
+        <!-- Full-Width Strong Action Card: Emergency SOS CTA -->
+        <div class="bento-card lg:col-span-12 p-6 sm:p-7 flex flex-col md:flex-row items-center justify-between gap-6 border-rose-500/20 bg-gradient-to-r from-[#0B0E14] via-[#0F141D] to-[#0B0E14]">
+          <div class="space-y-1 text-center md:text-left">
+            <div class="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-400 text-xs font-medium border border-rose-500/20 mb-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse"></span>
+              Emergency Dispatch Action
+            </div>
+            <h3 class="font-heading text-lg font-semibold text-white">Broadcast Emergency SOS</h3>
+            <p class="text-xs text-slate-400 max-w-xl">
+              Initiates an instant proximity scan within 10 km. Gemma 4 evaluates compatible residential charging hosts on-device.
+            </p>
+          </div>
+
+          <!-- Magnetic SOS CTA Button -->
+          <div class="w-full md:w-auto shrink-0">
+            <button id="sos-btn" type="button"
+              class="relative w-full md:w-auto px-8 py-4 rounded-xl font-medium text-sm text-white bg-rose-600 hover:bg-rose-500 shadow-sm border border-rose-400/30 transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="2"></circle>
+                <path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"></path>
+              </svg>
+              <span id="sos-btn-text">Broadcast Emergency SOS</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- =============================================================== -->
+    <!-- ROW 2: DISPATCH (MAP + RECOMMENDATION)                          -->
+    <!-- =============================================================== -->
+    <section class="space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="font-heading font-semibold text-lg text-white tracking-tight">Nearby hosts & dispatch radar</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Real-time host node map and autonomous dispatch recommendation.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-slate-400">Coordinates:</span>
+          <span id="map-status" class="text-xs font-mono text-slate-200 bg-[#0F141D] px-2.5 py-1 rounded-md border border-slate-800">
+            18.5204, 73.8567
+          </span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+        <!-- Map Card (Span 8, Min-Height 520px) -->
+        <div class="bento-card lg:col-span-8 overflow-hidden flex flex-col min-h-[520px]">
+          <!-- Header Bar -->
+          <div class="px-5 py-3.5 border-b border-slate-800/80 bg-[#0F141D] flex items-center justify-between text-xs text-slate-300">
+            <span class="font-medium flex items-center gap-2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400">
+                <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
+                <line x1="8" y1="2" x2="8" y2="18"></line>
+                <line x1="16" y1="6" x2="16" y2="22"></line>
+              </svg>
+              <span>Pune Sector Radar</span>
+            </span>
+            <div class="flex items-center gap-4 text-xs text-slate-400">
+              <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-rose-500"></span> Driver</span>
+              <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400"></span> Available hosts</span>
+            </div>
+          </div>
+
+          <!-- Leaflet Map Element -->
+          <div id="leaflet-map" class="flex-1 w-full min-h-[460px] z-10"></div>
+        </div>
+
+        <!-- Recommendation Card (Span 4) -->
+        <div id="dispatch-card" class="bento-card lg:col-span-4 p-6 sm:p-7 flex flex-col justify-between gap-6">
+          
+          <div class="flex items-center justify-between pb-3.5 border-b border-slate-800/80">
+            <div>
+              <span class="text-xs font-medium text-slate-400 uppercase tracking-wider block">Recommended host</span>
+              <h3 class="font-heading text-lg font-semibold text-white mt-0.5">Dispatch Intercept</h3>
+            </div>
+            <span id="priority-badge" class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/30">
+              HIGH PRIORITY
+            </span>
+          </div>
+
+          <!-- Host Name Large -->
+          <div>
+            <span class="text-xs text-slate-400 block mb-0.5">Assigned Host</span>
+            <p id="card-host-name" class="font-heading text-2xl font-bold text-white tracking-tight">Kavita Rao</p>
+            <span class="text-xs text-slate-400">Deccan Gymkhana, Pune</span>
+          </div>
+
+          <!-- 2x2 Metric Grid -->
+          <div class="grid grid-cols-2 gap-3">
+            <div class="bg-[#0F141D] p-3.5 rounded-xl border border-slate-800">
+              <span class="text-xs text-slate-400 block mb-1">Distance</span>
+              <p id="card-host-dist" class="font-mono text-base font-semibold text-emerald-400 tabular-nums">1.63 km away</p>
+              <span class="text-[11px] text-slate-400">Within reserve range</span>
+            </div>
+            <div class="bg-[#0F141D] p-3.5 rounded-xl border border-slate-800">
+              <span class="text-xs text-slate-400 block mb-1">Output</span>
+              <p id="card-charger-spec" class="font-mono text-base font-semibold text-slate-100 tabular-nums">7.2 kW (Type 2)</p>
+              <span class="text-[11px] text-slate-400">Fast AC charging</span>
+            </div>
+            <div class="bg-[#0F141D] p-3.5 rounded-xl border border-slate-800">
+              <span class="text-xs text-slate-400 block mb-1">Tariff</span>
+              <p id="card-rate" class="font-mono text-base font-semibold text-slate-100 tabular-nums">₹13 / kWh</p>
+              <span class="text-[11px] text-slate-400">Peer pricing</span>
+            </div>
+            <div class="bg-[#0F141D] p-3.5 rounded-xl border border-slate-800">
+              <span class="text-xs text-slate-400 block mb-1">Est. Charge Time</span>
+              <p id="card-eta-30" class="font-mono text-base font-semibold text-emerald-400 tabular-nums">~45 mins</p>
+              <span class="text-[11px] text-slate-400">To 30% battery</span>
+            </div>
+          </div>
+
+          <!-- Driver Advisory Callout -->
+          <div class="bg-[#0F141D] p-4 rounded-xl border border-slate-800/80 text-xs">
+            <span class="text-slate-300 font-medium block mb-1 flex items-center gap-1.5">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-400">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="16" x2="12" y2="12"></line>
+                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+              </svg>
+              Driver advisory note
+            </span>
+            <p id="card-driver-briefing" class="text-slate-400 leading-relaxed">
+              Emergency match approved. Host slot held. Proceed with conservative acceleration to preserve power.
+            </p>
+          </div>
+
+          <!-- Collapsible "Why this host" Accordion -->
+          <details class="group bg-[#0F141D] rounded-xl border border-slate-800 overflow-hidden text-xs">
+            <summary class="px-4 py-3 cursor-pointer select-none font-medium text-slate-300 flex items-center justify-between hover:text-white transition">
+              <span>Why this host was selected</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 group-open:rotate-180 transition-transform">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </summary>
+            <div class="px-4 pb-3.5 text-slate-400 space-y-1.5 border-t border-slate-800/60 pt-2.5">
+              <div class="flex items-start gap-2">
+                <span class="text-emerald-400 font-bold">1.</span>
+                <span>Closest compatible port match (1.63 km vs 10 km search ceiling).</span>
+              </div>
+              <div class="flex items-start gap-2">
+                <span class="text-emerald-400 font-bold">2.</span>
+                <span>Active residential host with verified 7.2 kW Type 2 AC dedicated breaker.</span>
+              </div>
+              <div class="flex items-start gap-2">
+                <span class="text-emerald-400 font-bold">3.</span>
+                <span>Calculated arrival SoC reserve margin: ~5% safety buffer remaining.</span>
+              </div>
+            </div>
+          </details>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- =============================================================== -->
+    <!-- ROW 3: NEARBY HOSTS HORIZONTAL PREVIEW LIST                     -->
+    <!-- =============================================================== -->
+    <section class="space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="font-heading font-semibold text-lg text-white tracking-tight">Verified Pune hosts</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Hover to highlight and pan to location on map.</p>
+        </div>
+        <span class="text-xs font-mono text-slate-400">15 verified</span>
+      </div>
+
+      <div id="hosts-carousel" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <!-- Injected dynamically via JavaScript -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Clean Single-Line Footer -->
+  <footer class="border-t border-slate-800/80 py-6 text-center text-xs text-slate-400">
+    <p>VoltRescue · Hackathon build · Runs fully on-device</p>
+  </footer>
+
+  <!-- ================================================================ -->
+  <!-- STEP 3: DOCKABLE / FLOATING AI COPILOT DRAWER                    -->
+  <!-- ================================================================ -->
+  <div id="copilot-container" class="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+    
+    <!-- Collapsible Chat Drawer Panel -->
+    <div id="copilot-drawer" class="w-[400px] max-w-[calc(100vw-2.5rem)] h-[540px] bg-[#0B0E14] border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col transition-all duration-300 mb-3 hidden">
+      
+      <!-- Drawer Header -->
+      <div class="px-5 py-3.5 border-b border-slate-800 bg-[#0F141D] flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-6 h-6 rounded-md bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xs">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2 2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"></path>
+              <path d="M4 11v2a8 8 0 0 0 16 0v-2"></path>
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-xs font-semibold text-slate-200 font-heading">EV Copilot</h3>
+            <p class="text-[10px] text-slate-400 font-mono">Gemma 4 · running locally</p>
+          </div>
+        </div>
+        
+        <button id="minimize-chat-btn" type="button" title="Minimize Copilot (Esc)"
+          class="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 flex items-center justify-center text-xs transition">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Messages Stream -->
+      <div id="chat-messages" class="flex-1 p-4 overflow-y-auto flex flex-col gap-3 text-xs leading-relaxed">
+        <!-- Initial Message -->
+        <div class="flex gap-2.5 max-w-[90%] items-start">
+          <div class="w-6 h-6 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center text-[10px] shrink-0 mt-0.5">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+            </svg>
+          </div>
+          <div class="bg-[#0F141D] border border-slate-800 rounded-2xl rounded-tl-sm p-3.5 text-slate-200">
+            Hello! I am your on-device Gemma 4 roadside assistant. Ask me questions about range conservation, emergency charging safety, or host etiquette.
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Suggestion Chips Carousel -->
+      <div class="px-3.5 py-2 border-t border-slate-800/80 bg-[#0F141D]/50 flex gap-2 overflow-x-auto no-scrollbar">
+        <button type="button"
+          class="quick-chip shrink-0 text-[11px] px-3 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition"
+          data-query="Can I safely charge an EV on a domestic 15A home socket?">
+          15A socket safe?
+        </button>
+        <button type="button"
+          class="quick-chip shrink-0 text-[11px] px-3 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition"
+          data-query="How much range can I realistically squeeze out of 5% battery?">
+          Range at 5%?
+        </button>
+        <button type="button"
+          class="quick-chip shrink-0 text-[11px] px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition"
+          data-query="How do I save range with AC and speed control?">
+          Range tips
+        </button>
+      </div>
+
+      <!-- Chat Input Form -->
+      <form id="chat-form" class="p-3 border-t border-slate-800 bg-[#0F141D] flex items-center gap-2">
+        <input type="text" id="chat-input" placeholder="Ask Gemma 4 anything..."
+          class="flex-1 bg-[#090D16] border border-slate-800 focus:border-slate-600 rounded-xl px-3.5 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none transition">
+        <button type="submit"
+          class="w-8 h-8 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold flex items-center justify-center transition shrink-0 focus-visible:outline-none">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="19" x2="12" y2="5"></line>
+            <polyline points="5 12 12 5 19 12"></polyline>
+          </svg>
+        </button>
+      </form>
+
+    </div>
+
+    <!-- Floating Action Launcher Button (56px) -->
+    <button id="floating-toggle-btn" type="button"
+      class="w-14 h-14 rounded-full bg-[#0F141D] border border-slate-800 hover:border-slate-700 text-slate-100 shadow-xl flex items-center justify-center transition active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400">
+      <div class="relative">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+        </svg>
+        <span class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+      </div>
+    </button>
+  </div>
+
+  <!-- ================================================================ -->
+  <!-- JAVASCRIPT: LOGIC PRESERVATION & MOTION POLISH                   -->
+  <!-- ================================================================ -->
+  <script>
+    // ==============================================================
+    // PART 1: CORE TELEMETRY, MAP ENGINE & DISPATCH (EXACT BACKEND)
+    // ==============================================================
+    let map = null;
+    let userMarker = null;
+    let matchLine = null;
+    let hostMarkers = [];
+
+    const puneCoords = [18.5204, 73.8567];
+
+    // Verified Pune Residential Charging Hosts (15 Hosts)
+    const verifiedHosts = [
+      { id: "H001", name: "Arun Sharma",   area: "Kothrud",         lat: 18.5074, lng: 73.8077, spec: "7.2 kW Type 2", rate: "₹12/kWh" },
+      { id: "H002", name: "Priya Desai",   area: "Baner",           lat: 18.5590, lng: 73.7868, spec: "7.2 kW CCS2",   rate: "₹14/kWh" },
+      { id: "H003", name: "Ravi Kulkarni", area: "Wakad",           lat: 18.5985, lng: 73.7624, spec: "3.3 kW Type 2", rate: "₹10/kWh" },
+      { id: "H004", name: "Meena Joshi",   area: "Aundh",           lat: 18.5579, lng: 73.8080, spec: "3.3 kW 15A",    rate: "₹10/kWh" },
+      { id: "H005", name: "Sanjay Patil",  area: "Hinjewadi",       lat: 18.5912, lng: 73.7384, spec: "7.2 kW CCS2",   rate: "₹13/kWh" },
+      { id: "H006", name: "Anita More",    area: "Pimpri",          lat: 18.6279, lng: 73.7998, spec: "7.2 kW Type 2", rate: "₹12/kWh" },
+      { id: "H007", name: "Deepak Nair",   area: "Shivajinagar",    lat: 18.5308, lng: 73.8474, spec: "3.3 kW Type 2", rate: "₹11/kWh" },
+      { id: "H008", name: "Kavita Rao",    area: "Deccan Gymkhana", lat: 18.5162, lng: 73.8419, spec: "7.2 kW Type 2", rate: "₹13/kWh" },
+      { id: "H010", name: "Sunita Biswas", area: "Hadapsar",        lat: 18.5018, lng: 73.9260, spec: "3.3 kW Type 2", rate: "₹10/kWh" },
+      { id: "H011", name: "Rohit Sathe",   area: "Magarpatta",      lat: 18.5111, lng: 73.9270, spec: "7.2 kW CCS2",   rate: "₹12/kWh" },
+      { id: "H012", name: "Lalitha Menon", area: "Kondhwa",         lat: 18.4684, lng: 73.8858, spec: "3.3 kW 15A",    rate: "₹10/kWh" },
+      { id: "H013", name: "Vivek Tiwari",  area: "Katraj",          lat: 18.4527, lng: 73.8625, spec: "7.2 kW Type 2", rate: "₹11/kWh" },
+      { id: "H014", name: "Pooja Iyer",    area: "Sinhagad Road",   lat: 18.4810, lng: 73.8240, spec: "7.2 kW CCS2",   rate: "₹14/kWh" },
+      { id: "H015", name: "Amit Wagh",     area: "Warje",           lat: 18.4895, lng: 73.7960, spec: "3.3 kW Type 2", rate: "₹10/kWh" }
+    ];
+
+    function initMap(lat, lng) {
+      if (!map) {
+        map = L.map('leaflet-map', { zoomControl: false }).setView([lat, lng], 13);
+        // Free OpenStreetMap Tiles - strictly darkened via CSS .leaflet-tile-pane
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        }).addTo(map);
+
+        // Zoom controls placed at bottom-right
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
+      } else {
+        map.setView([lat, lng], 13);
+      }
+
+      // Stranded Driver Marker (Coral dot with soft pulse halo)
+      if (userMarker) map.removeLayer(userMarker);
+      const userDot = L.divIcon({
+        className: 'user-marker',
+        html: `
+          <div style="position:relative; width:24px; height:24px; display:flex; align-items:center; justify-content:center;">
+            <div class="driver-pulse-ring" style="position:absolute; width:24px; height:24px; border-radius:50%; background:rgba(251,113,133,0.35);"></div>
+            <div style="position:relative; width:12px; height:12px; border-radius:50%; background:#FB7185; border:2px solid #FFFFFF; box-shadow:0 0 10px rgba(251,113,133,0.8);"></div>
+          </div>
+        `,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+      });
+
+      const userPopup = `
+        <div style="font-family:'Inter',sans-serif; min-width:160px;">
+          <div style="font-size:10px; font-weight:600; color:#FB7185; text-transform:uppercase; margin-bottom:2px;">Driver Location</div>
+          <div style="font-size:12px; font-weight:600; color:#F8FAFC;">Stranded Telemetry Lock</div>
+          <div style="font-size:11px; color:#94A3B8; margin-top:2px; font-family:'JetBrains Mono',monospace;">${lat.toFixed(4)}, ${lng.toFixed(4)}</div>
+        </div>
+      `;
+
+      userMarker = L.marker([lat, lng], { icon: userDot }).addTo(map).bindPopup(userPopup).openPopup();
+
+      // Host Node Markers
+      hostMarkers.forEach(m => map.removeLayer(m));
+      hostMarkers = [];
+
+      verifiedHosts.forEach(h => {
+        const hostDot = L.divIcon({
+          className: 'host-marker',
+          html: `
+            <div style="display:flex; align-items:center; justify-content:center; width:20px; height:20px; cursor:pointer;">
+              <div style="position:absolute; width:18px; height:18px; border-radius:50%; background:rgba(52,211,153,0.2);"></div>
+              <div style="width:9px; height:9px; border-radius:50%; background:#34D399; border:1.5px solid #FFFFFF;"></div>
+            </div>
+          `,
+          iconSize: [20, 20],
+          iconAnchor: [10, 10]
+        });
+
+        const popupHtml = `
+          <div style="font-family:'Inter',sans-serif; min-width:180px;">
+            <div style="font-size:10px; font-weight:600; color:#34D399; text-transform:uppercase; margin-bottom:2px;">Verified Host</div>
+            <div style="font-size:12px; font-weight:600; color:#F8FAFC; margin-bottom:4px;">${h.name} (${h.area})</div>
+            <div style="font-size:11px; color:#CBD5E1; background:#0B0E14; padding:6px 8px; border-radius:6px; border:1px solid #1E293B;">
+              <div>Spec: <strong style="color:#F8FAFC;">${h.spec}</strong></div>
+              <div>Rate: <strong style="color:#34D399;">${h.rate}</strong></div>
+            </div>
+          </div>
+        `;
+
+        const marker = L.marker([h.lat, h.lng], { icon: hostDot })
+          .addTo(map)
+          .bindPopup(popupHtml);
+        hostMarkers.push(marker);
+      });
+
+      document.getElementById('map-status').innerText = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+      setTimeout(() => { if (map) map.invalidateSize(); }, 300);
+    }
+
+    initMap(puneCoords[0], puneCoords[1]);
+
+    // Populate Row 3: Nearby Hosts Preview Carousel
+    const hostsCarousel = document.getElementById('hosts-carousel');
+    if (hostsCarousel) {
+      verifiedHosts.slice(0, 5).forEach(h => {
+        const card = document.createElement('div');
+        card.className = "bg-[#0B0E14] border border-slate-800 hover:border-slate-700 rounded-xl p-3.5 transition cursor-pointer";
+        card.innerHTML = `
+          <div class="flex items-center justify-between text-[11px] mb-1">
+            <span class="text-slate-400 font-medium">${h.area}</span>
+            <span class="text-emerald-400 font-mono">${h.rate}</span>
+          </div>
+          <div class="text-xs font-semibold text-white truncate">${h.name}</div>
+          <div class="text-[11px] font-mono text-slate-400 mt-1">${h.spec}</div>
+        `;
+        card.addEventListener('mouseenter', () => {
+          if (map) {
+            map.flyTo([h.lat, h.lng], 14, { duration: 0.8 });
+            const m = hostMarkers.find(hm => hm.getLatLng().lat === h.lat && hm.getLatLng().lng === h.lng);
+            if (m) m.openPopup();
+          }
+        });
+        hostsCarousel.appendChild(card);
+      });
+    }
+
+    // ==========================================
+    // 2. Battery Slider & Continuous Color Shifts
+    // ==========================================
+    const batteryRange = document.getElementById('battery-range');
+    const batteryBar = document.getElementById('battery-bar');
+    const batteryText = document.getElementById('battery-val-text');
+    const batteryStatusTag = document.getElementById('battery-status-tag');
+    const estRangeText = document.getElementById('est-range-text');
+
+    function updateBatteryDisplay(val) {
+      batteryText.innerText = `${val}%`;
+      batteryBar.style.width = `${val}%`;
+      
+      const estKm = Math.round((val / 100) * 312);
+      if (estRangeText) estRangeText.innerText = `~${estKm} km`;
+
+      if (val < 15) {
+        batteryBar.className = "h-full bg-rose-500 rounded-lg transition-all duration-300";
+        batteryText.className = "font-heading text-5xl font-bold tracking-tight text-rose-400 tabular-nums animate-pulse";
+        if (batteryStatusTag) {
+          batteryStatusTag.innerText = "Critical reserve";
+          batteryStatusTag.className = "text-xs font-medium px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20";
+        }
+      } else if (val <= 40) {
+        batteryBar.className = "h-full bg-amber-400 rounded-lg transition-all duration-300";
+        batteryText.className = "font-heading text-5xl font-bold tracking-tight text-amber-400 tabular-nums";
+        if (batteryStatusTag) {
+          batteryStatusTag.innerText = "Low margin";
+          batteryStatusTag.className = "text-xs font-medium px-2.5 py-0.5 rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/20";
+        }
+      } else {
+        batteryBar.className = "h-full bg-emerald-400 rounded-lg transition-all duration-300";
+        batteryText.className = "font-heading text-5xl font-bold tracking-tight text-emerald-400 tabular-nums";
+        if (batteryStatusTag) {
+          batteryStatusTag.innerText = "Healthy charge";
+          batteryStatusTag.className = "text-xs font-medium px-2.5 py-0.5 rounded-full bg-emerald-400/10 text-emerald-400 border border-emerald-400/20";
+        }
+      }
+    }
+
+    batteryRange.addEventListener('input', (e) => {
+      updateBatteryDisplay(parseInt(e.target.value));
+    });
+
+    // ==========================================
+    // 3. GPS Auto-Locator
+    // ==========================================
+    document.getElementById('locate-btn').addEventListener('click', () => {
+      const status = document.getElementById('map-status');
+      if (!navigator.geolocation) {
+        alert("Geolocation not supported by this browser.");
+        return;
+      }
+      status.innerText = "Querying GPS...";
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          document.getElementById('lat-input').value = lat.toFixed(4);
+          document.getElementById('lng-input').value = lng.toFixed(4);
+          initMap(lat, lng);
+        },
+        () => {
+          status.innerText = "Default: Pune Central";
+        }
+      );
+    });
+
+    // ==========================================
+    // 4. Emergency SOS Match Request (FastAPI)
+    // ==========================================
+    const sosBtn = document.getElementById('sos-btn');
+    const sosBtnText = document.getElementById('sos-btn-text');
+
+    sosBtn.addEventListener('click', async () => {
+      const lat = parseFloat(document.getElementById('lat-input').value);
+      const lng = parseFloat(document.getElementById('lng-input').value);
+
+      sosBtn.disabled = true;
+
+      // Progressive status steps
+      const steps = [
+        "Locating compatible hosts...",
+        "Ranking by distance & output...",
+        "Gemma 4 evaluating dispatch..."
+      ];
+      let stepIndex = 0;
+      sosBtnText.innerText = steps[0];
+      const stepTimer = setInterval(() => {
+        stepIndex++;
+        if (stepIndex < steps.length) {
+          sosBtnText.innerText = steps[stepIndex];
+        }
+      }, 1200);
+
+      try {
+        const payload = {
+          user_id: "driver_sos_01",
+          vehicle_model: document.getElementById('ev-model').value,
+          battery_percentage: parseInt(batteryRange.value),
+          port_type: document.getElementById('port-type').value,
+          lat: lat,
+          lng: lng
+        };
+
+        const res = await fetch('/api/emergency-match', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        clearInterval(stepTimer);
+
+        if (!res.ok) throw new Error("Match request failed");
+        const data = await res.json();
+        const dispatch = data.ai_dispatch || data;
+        const hosts = data.nearby_hosts || [];
+        const host = hosts.find(h => h.id === dispatch.selected_host_id || h.name === dispatch.selected_host_id) || hosts[0];
+
+        // Populate recommendation card
+        document.getElementById('card-host-name').innerText = (host ? `${host.name}` : dispatch.selected_host_id) || "Kavita Rao";
+        if (host) {
+          document.getElementById('card-host-dist').innerText = `${host.distance_km} km away`;
+          document.getElementById('card-charger-spec').innerText = `${host.speed_kw} kW (${host.port_types ? host.port_types.join(', ') : 'Type 2'})`;
+          document.getElementById('card-rate').innerText = `₹${host.rate_inr_per_kwh} / kWh`;
+        }
+        document.getElementById('card-eta-30').innerText = `~${dispatch.estimated_charge_minutes || 45} mins`;
+        document.getElementById('card-driver-briefing').innerText = dispatch.driver_message || "Emergency match approved. Host slot held.";
+        
+        const priority = dispatch.priority_level || "HIGH";
+        const priorityBadge = document.getElementById('priority-badge');
+        priorityBadge.innerText = `${priority} PRIORITY`;
+        if (priority === 'CRITICAL') {
+          priorityBadge.className = "px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-500/20 text-rose-400 border border-rose-500/40";
+        } else {
+          priorityBadge.className = "px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-400/20 text-amber-400 border border-amber-400/40";
+        }
+
+        // Draw animated dashed route line to host
+        if (matchLine) map.removeLayer(matchLine);
+        const targetCoord = host ? [host.lat, host.lng] : [lat + 0.008, lng + 0.009];
+        matchLine = L.polyline([[lat, lng], targetCoord], {
+          color: '#34D399',
+          weight: 3,
+          dashArray: '8, 8',
+          className: 'route-line-anim'
+        }).addTo(map);
+
+        map.flyToBounds(matchLine.getBounds(), { padding: [50, 50], duration: 1.2 });
+
+        // Smooth scroll to dispatch section
+        const dispatchEl = document.getElementById('dispatch-card');
+        if (dispatchEl) {
+          dispatchEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+      } catch (err) {
+        clearInterval(stepTimer);
+        console.error(err);
+        alert("SOS Match failed. Ensure FastAPI is running on port 8080.");
+      } finally {
+        sosBtn.disabled = false;
+        sosBtnText.innerText = "Broadcast Emergency SOS";
+      }
+    });
+
+    // ==========================================
+    // 5. Copilot Chat (Supports /api/copilot & /api/chat)
+    // ==========================================
+    const chatForm = document.getElementById('chat-form');
+    const chatInput = document.getElementById('chat-input');
+    const chatMessages = document.getElementById('chat-messages');
+    const copilotDrawer = document.getElementById('copilot-drawer');
+    const floatingToggleBtn = document.getElementById('floating-toggle-btn');
+    const minimizeChatBtn = document.getElementById('minimize-chat-btn');
+    const openChatBtn = document.getElementById('open-chat-btn');
+
+    let isChatOpen = false;
+
+    function setChatOpen(open) {
+      isChatOpen = open;
+      if (open) {
+        copilotDrawer.classList.remove('hidden');
+        floatingToggleBtn.classList.add('hidden');
+        setTimeout(() => chatInput.focus(), 150);
+      } else {
+        copilotDrawer.classList.add('hidden');
+        floatingToggleBtn.classList.remove('hidden');
+      }
+    }
+
+    floatingToggleBtn.addEventListener('click', () => setChatOpen(true));
+    openChatBtn.addEventListener('click', () => setChatOpen(true));
+    minimizeChatBtn.addEventListener('click', () => setChatOpen(false));
+
+    // Global Esc and Cmd+K / Ctrl+K shortcut
+    window.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setChatOpen(!isChatOpen);
+      } else if (e.key === 'Escape' && isChatOpen) {
+        setChatOpen(false);
+      }
+    });
+
+    function appendMessage(sender, text) {
+      const isUser = sender === 'user';
+      const bubble = document.createElement('div');
+      bubble.className = `flex gap-2.5 max-w-[88%] ${isUser ? 'ml-auto flex-row-reverse' : ''}`;
+      
+      // Basic safe markdown parsing
+      const formatted = text
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/`([^`]+)`/g, '<code class="bg-black/30 px-1 py-0.5 rounded font-mono text-[11px]">$1</code>');
+
+      bubble.innerHTML = `
+        <div class="w-6 h-6 rounded-full ${isUser ? 'bg-slate-800 text-slate-300' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'} flex items-center justify-center text-[10px] shrink-0 mt-0.5">
+          ${isUser ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>' : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>'}
+        </div>
+        <div class="${isUser ? 'bg-[#1E293B] text-slate-100 rounded-tr-sm' : 'bg-[#0F141D] text-slate-200 rounded-tl-sm border border-slate-800'} rounded-2xl p-3 shadow-sm leading-relaxed">
+          ${formatted}
+        </div>
+      `;
+
+      chatMessages.appendChild(bubble);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    async function sendChat(message) {
+      if (!message.trim()) return;
+      appendMessage('user', message);
+      chatInput.value = '';
+
+      // Clean typing indicator with 3 bouncing dots
+      const typingIndicator = document.createElement('div');
+      typingIndicator.id = 'typing-indicator';
+      typingIndicator.className = 'flex items-center gap-1.5 ml-8 text-xs text-slate-400 py-1';
+      typingIndicator.innerHTML = `
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style="animation-delay:0s"></span>
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style="animation-delay:0.2s"></span>
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style="animation-delay:0.4s"></span>
+      `;
+      chatMessages.appendChild(typingIndicator);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+
+      try {
+        const payload = { message: message };
+        let res;
+        // Supports both /api/copilot (prompt spec) and /api/chat (backend main.py)
+        try {
+          res = await fetch('/api/copilot', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (!res.ok && res.status === 404) {
+            res = await fetch('/api/chat', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+          }
+        } catch (e) {
+          res = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+        }
+
+        const data = await res.json();
+        typingIndicator.remove();
+        
+        const reply = data.reply || data.response || "No response received.";
+        // Fast word-by-word streaming effect
+        streamAssistantReply(reply);
+
+      } catch (e) {
+        typingIndicator.remove();
+        appendMessage('bot', "Could not reach local Gemma 4 on port 11434. Verify Ollama is running.");
+      }
+    }
+
+    function streamAssistantReply(text) {
+      const words = text.split(' ');
+      const bubble = document.createElement('div');
+      bubble.className = "flex gap-2.5 max-w-[88%] items-start";
+      bubble.innerHTML = `
+        <div class="w-6 h-6 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center text-[10px] shrink-0 mt-0.5">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+        </div>
+        <div class="assistant-content bg-[#0F141D] text-slate-200 rounded-2xl rounded-tl-sm p-3 border border-slate-800 shadow-sm leading-relaxed">
+        </div>
+      `;
+      chatMessages.appendChild(bubble);
+      const contentEl = bubble.querySelector('.assistant-content');
+
+      let i = 0;
+      const interval = setInterval(() => {
+        if (i < words.length) {
+          contentEl.innerText = words.slice(0, i + 1).join(' ');
+          chatMessages.scrollTop = chatMessages.scrollHeight;
+          i++;
+        } else {
+          clearInterval(interval);
+        }
+      }, 25);
+    }
+
+    chatForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      sendChat(chatInput.value);
+    });
+
+    document.querySelectorAll('.quick-chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        sendChat(btn.getAttribute('data-query'));
+      });
+    });
+
+    // ==============================================================
+    // PART 2: MOTION SYSTEM ENHANCEMENTS (AWARDS-LEVEL POLISH)
+    // ==============================================================
+    const isReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // 1. Lenis Smooth Scroll
+    if (window.Lenis && !isReducedMotion) {
+      const lenis = new Lenis({
+        duration: 1.1,
+        easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+        orientation: 'vertical',
+        smoothWheel: true,
+      });
+
+      function raf(time) {
+        lenis.raf(time);
+        requestAnimationFrame(raf);
+      }
+      requestAnimationFrame(raf);
+    }
+
+    // 2. Cursor Spotlight on Bento Cards
+    document.querySelectorAll('.bento-card').forEach(card => {
+      card.addEventListener('mousemove', (e) => {
+        const rect = card.getBoundingClientRect();
+        card.style.setProperty('--mx', `${e.clientX - rect.left}px`);
+        card.style.setProperty('--my', `${e.clientY - rect.top}px`);
+      });
+    });
+
+    // 3. Subtle Magnetic Effect on Primary SOS CTA Button
+    if (sosBtn && !isReducedMotion) {
+      sosBtn.addEventListener('mousemove', (e) => {
+        const rect = sosBtn.getBoundingClientRect();
+        const x = e.clientX - rect.left - rect.width / 2;
+        const y = e.clientY - rect.top - rect.height / 2;
+        sosBtn.style.transform = `translate(${x * 0.12}px, ${y * 0.12}px)`;
+      });
+      sosBtn.addEventListener('mouseleave', () => {
+        sosBtn.style.transform = 'translate(0px, 0px)';
+      });
+    }
+
+    // 4. GSAP Staggered Entry Reveal & Count-Up
+    if (window.gsap && !isReducedMotion) {
+      // Staggered reveal of header and hero cards
+      gsap.from('header', { y: -20, opacity: 0, duration: 0.6, ease: 'power2.out' });
+      gsap.from('.bento-card', {
+        y: 20,
+        opacity: 0,
+        duration: 0.7,
+        stagger: 0.08,
+        ease: 'power2.out',
+        delay: 0.1
+      });
+
+      // Numerical count-up for initial 8% battery state
+      const batteryObj = { val: 0 };
+      gsap.to(batteryObj, {
+        val: 8,
+        duration: 1.2,
+        ease: 'power2.out',
+        onUpdate: () => {
+          updateBatteryDisplay(Math.round(batteryObj.val));
+        }
+      });
+    } else {
+      updateBatteryDisplay(8);
+    }
+  </script>
+</body>
+
+</html>
